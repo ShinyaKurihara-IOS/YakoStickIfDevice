@@ -1,0 +1,19 @@
+<resources>
+    <string name="config_yakostickifdevice_name">YakoStickIfDevice IMS設定メニュー</string>
+    <string name="pref_log_level">ログ出力対象</string>
+    <string name="pref_log_level_summary">ログ出力対象を選択します。</string>
+
+    <string-array name="pref_log_level_list_title">
+        <item>IMS I/F デバイスモジュールログ(DeviceConnector)</item>
+        <item>IMS I/F IMSモジュールログ(IfLinkConnector)</item>
+        <item>マイクロサービス デバイスモジュールログ</item>
+        <item>マイクロサービス IMSモジュールログ</item>
+    </string-array>
+
+    <string name="pref_yakostickifdevice_settings_parameter_name">"YakoStickIfDevice parameter"</string>
+    <string name="pref_yakostickifdevice_settings_parameter_key">"yakostickifdevice_param_key"</string>
+    <string name="pref_yakostickifdevice_settings_parameter_summary">"パラメータ説明"</string>
+
+    <string name="pref_yakostickifdevice_settings_parameter_default">"1"</string>
+
+</resources>

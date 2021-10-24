@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<iflink>
+    <language name="jp">
+        <device
+            name="ヤコースティックIFデバイス"
+            dataitem="sample"
+            icon="yakostickifdevicedevice.png"
+            key="devicename"
+            value="YakoStickIfDevice">
+            <if>
+                <condition
+                    name="サンプルデータが閾値を上回ったら"
+                    icon="notification.png"
+                    interface="sample"
+                    key="dataname"
+                    value="yakostickifdevice">
+                    <property
+                        name="判断"
+                        datatype="string"
+                        key="compare"
+                        type="hidden"
+                        value="ge" />
+                    <property
+                        name="閾値"
+                        datatype="int"
+                        default="0"
+                        key="value"
+                        max="360"
+                        min="0"
+                        type="text" />
+                </condition>
+            </if>
+            <then>
+                <condition
+                    name="動作"
+                    icon="notification.png"
+                    interface="sample"
+                    key="control"
+                    value="yakostickifdevice">
+                    <property
+                        name="パラメータ"
+                        datatype="string"
+                        default="0"
+                        key="yakostickifdevice_job_key"
+                        type="text" />
+                </condition>
+            </then>
+        </device>
+    </language>
+    <language name="en">
+        <device
+            name="YakoStickIfDevice"
+            dataitem="sample"
+            icon="yakostickifdevicedevice.png"
+            key="devicename"
+            value="YakoStickIfDevice">
+            <if>
+                <condition
+                    name="When the sensor data exceeds the threshold value"
+                    icon="notification.png"
+                    interface="sample"
+                    key="dataname"
+                    value="yakostickifdevice">
+                    <property
+                        name="Judgment"
+                        datatype="string"
+                        key="compare"
+                        type="hidden"
+                        value="ge" />
+                    <property
+                        name="Threshold"
+                        datatype="int"
+                        default="0"
+                        key="value"
+                        max="360"
+                        min="0"
+                        type="text" />
+                </condition>
+            </if>
+            <then>
+                <condition
+                    name="condition"
+                    icon="notification.png"
+                    interface="sample"
+                    key="control"
+                    value="yakostickifdevice">
+                    <property
+                        name="parameter"
+                        datatype="string"
+                        key="yakostickifdevice_job_key"
+                        type="text" />
+                </condition>
+            </then>
+        </device>
+    </language>
+
+    <schema name="YakoStickIfDevice">
+        <property
+            name="devicename"
+            type="string" />
+        <property
+            name="deviceserial"
+            type="string" />
+        <property
+            name="timestamp"
+            type="timestamp" />
+        <property
+            name="yakostickifdevice"
+            type="int" />
+    </schema>
+</iflink>

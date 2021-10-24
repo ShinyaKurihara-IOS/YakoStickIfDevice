@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<schema name="yakostickifdevice">
+    <property
+        name="devicename"
+        type="string" />
+    <property
+        name="deviceserial"
+        type="string" />
+    <property
+        name="timestamp"
+        type="timestamp" />
+    <!-- デバイス固有設定 Sample Start -->
+    <property
+        name="yakostickifdevice"
+        type="int" />
+    <!-- デバイス固有設定 Sample End -->
+</schema>

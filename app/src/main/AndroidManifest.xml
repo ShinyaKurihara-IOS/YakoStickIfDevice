@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="jp.co.iloc.iflink.yakostickifdevice">
+
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+
+    <application
+        android:allowBackup="true"
+        android:icon="@mipmap/ims_3rd"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ims_3rd_round"
+        android:supportsRtl="true"
+        android:theme="@style/AppTheme">
+        <activity
+            android:name=".YakoStickIfDeviceSettingsActivity"
+            android:configChanges="orientation|keyboardHidden|screenSize"
+            android:label="@string/config_yakostickifdevice_name"
+            android:theme="@style/Theme.AppCompat.Light.NoActionBar">
+            <intent-filter>
+                <action android:name="jp.co.toshiba.iflink.AndroidService" />
+            </intent-filter>
+        </activity>
+        <!-- IMS PermissionActivity -->
+        <activity android:name="jp.co.toshiba.iflink.ui.PermissionActivity" />
+
+        <service
+            android:name=".YakoStickIfDeviceIms"
+            android:enabled="true"
+            android:exported="true"
+            android:process=":YakoStickIfDeviceIms">
+            <intent-filter>
+                <action android:name="jp.co.toshiba.iflink.AndroidService" />
+                <action android:name="jp.co.iloc.iflink.yakostickifdevice.YakoStickIfDeviceIms" />
+            </intent-filter>
+
+            <meta-data
+                android:name="serviceName"
+                android:value="YakoStickIfDeviceService" />
+            <meta-data
+                android:name="description"
+                android:value="ifLink Micro Service." />
+        </service>
+    </application>
+
+</manifest>

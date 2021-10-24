@@ -1,0 +1,29 @@
+<resources>
+    <string name="app_name">YakoStickIfDevice</string>
+    <string name="config_yakostickifdevice_name">YakoStickIfDevice IMS Settings</string>
+
+    <string name="pref_log_level_key" translatable="false">loglevel</string>
+    <string name="pref_log_level_summary">Select log items</string>
+    <string name="pref_log_level">Log output target</string>
+    <string-array name="pref_log_level_list_title">
+        <item>IMS I/F Device log(DeviceConnector)</item>
+        <item>IMS I/F IMS log(IfLinkConnector)</item>
+        <item>Micro Service device log</item>
+        <item>Micro Service IMS log</item>
+    </string-array>
+    <string-array name="pref_log_level_list_values">
+        <item>IFLINK-CONNECTOR</item>
+        <item>DEVICE-CONNECTOR</item>
+        <item>CUSTOM-DEV</item>
+        <item>CUSTOM-IMS</item>
+    </string-array>
+
+    <string name="pref_yakostickifdevice_settings_parameter_name">"YakoStickIfDevice parameter"
+    </string>
+    <string name="pref_yakostickifdevice_settings_parameter_key">"yakostickifdevice_param_key"
+    </string>
+    <string name="pref_yakostickifdevice_settings_parameter_summary">"parameter description"
+    </string>
+
+    <string name="pref_yakostickifdevice_settings_parameter_default">"1"</string>
+</resources>

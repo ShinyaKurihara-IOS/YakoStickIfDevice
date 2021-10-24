@@ -1,0 +1,19 @@
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <MultiSelectListPreference
+        android:entries="@array/pref_log_level_list_title"
+        android:entryValues="@array/pref_log_level_list_values"
+        android:key="@string/pref_log_level_key"
+        android:summary="@string/pref_log_level_summary"
+        android:title="@string/pref_log_level" />
+
+
+    <EditTextPreference
+        android:defaultValue="@string/pref_yakostickifdevice_settings_parameter_default"
+        android:key="@string/pref_yakostickifdevice_settings_parameter_key"
+        android:selectAllOnFocus="true"
+        android:singleLine="true"
+        android:summary="@string/pref_yakostickifdevice_settings_parameter_summary"
+        android:title="@string/pref_yakostickifdevice_settings_parameter_name" />
+
+</PreferenceScreen>

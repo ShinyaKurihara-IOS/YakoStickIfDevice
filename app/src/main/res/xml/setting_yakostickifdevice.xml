@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<iflink>
+    <language name="jp">
+        <ims
+            name="YakoStickIfDevice IMS設定メニュー"
+            category="CustomIMS"
+            key="config_yakostickifdevice_name"
+            value="YakoStickIfDeviceService">
+            <condition name="IMSのログ設定">
+                <property
+                    name="ログ出力レベル"
+                    datatype="string-array"
+                    default=""
+                    key="loglevel"
+                    option="IMS I/F デバイスモジュールログ(DeviceConnecotr),IMS I/F IMSモジュールログ(IfLinkConnecotr),マイクロサービス デバイスモジュールログ,マイクロサービス IMSモジュールログ"
+                    type="checkbox"
+                    unit="複数選択"
+                    value="DEVICE-CONNECTOR,IFLINK-CONNECTOR,CUSTOM-DEV,CUSTOM-IMS" />
+            </condition>
+            <condition name="YakoStickIfDevice の設定">
+                <property
+                    name="YakoStickIfDevice パラメータ"
+                    datatype="int"
+                    default="1"
+                    key="yakostickifdevice_param_key"
+                    type="text"
+                    unit="" />
+            </condition>
+        </ims>
+    </language>
+    <language name="en">
+        <ims
+            name="YakoStickIfDevice IMS Settings"
+            category="CustomIMS"
+            key="config_yakostickifdevice_name"
+            value="YakoStickIfDeviceService">
+            <condition name="IMS Log Setting">
+                <property
+                    name="Log output target"
+                    datatype="string-array"
+                    default=""
+                    key="loglevel"
+                    option="IMS I/F Device log(DeviceConnecotr),IMS I/F IMS log(IfLinkConnecotr),Micro Service device log,Micro Service IMS log"
+                    type="checkbox"
+                    unit="multiple choice"
+                    value="DEVICE-CONNECTOR,IFLINK-CONNECTOR,CUSTOM-DEV,CUSTOM-IMS" />
+            </condition>
+            <condition name="YakoStickIfDevice Settings">
+                <property
+                    name="YakoStickIfDevice parameter"
+                    datatype="int"
+                    default="1"
+                    key="yakostickifdevice_param_key"
+                    type="text"
+                    unit="" />
+            </condition>
+        </ims>
+    </language>
+</iflink>
