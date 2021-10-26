@@ -16,4 +16,5 @@
 
     <string name="pref_yakostickifdevice_settings_parameter_default">"1"</string>
 
+    <string name="ble_not_supported">Bluetooth LEに対応していません</string>
 </resources>

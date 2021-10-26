@@ -4,6 +4,9 @@ import android.Manifest;
 
 import androidx.annotation.NonNull;
 
+import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothManager;
+import android.content.Context;
 import android.util.Log;
 
 import java.util.Set;
@@ -68,19 +71,32 @@ public class YakoStickIfDeviceIms extends IfLinkConnector {
     @Override
     protected void onActivationResult(final boolean result,
                                       final EPADevice epaDevice) {
-        YakoStickIfDevice dev = new YakoStickIfDevice(this);
+        if (bDBG) Log.d(TAG, "onActivationResult");
+        //Bluetoothアダプター初期化
+        BluetoothManager manager = (BluetoothManager)getSystemService(Context.BLUETOOTH_SERVICE);
+        BluetoothAdapter adapter = manager.getAdapter();
+
+        //bluetoothの使用が許可されていない場合は許可を求める。
+        if( adapter == null || !adapter.isEnabled() ){
+            Log.d(TAG,"bluetooth off. please turn on.");
+            return;
+        }
+
+        YakoStickIfDevice yakoStick = new YakoStickIfDevice( this, adapter );
     }
 
     @Override
     protected final String[] getPermissions() {
         if (bDBG) Log.d(TAG, "getPermissions");
         // サンプル用：BLE利用の場合のコードを生成しています。
-        return new String[]{Manifest.permission.ACCESS_COARSE_LOCATION};
+        return new String[]{Manifest.permission.BLUETOOTH, Manifest.permission.BLUETOOTH_ADMIN,
+                            Manifest.permission.ACCESS_COARSE_LOCATION};
     }
 
     @Override
     protected void onPermissionGranted() {
         // パーミッションを許可された場合の処理を記述してください。
+        if (bDBG) Log.d(TAG, "onPermissionGranted");
     }
 
     @Override
