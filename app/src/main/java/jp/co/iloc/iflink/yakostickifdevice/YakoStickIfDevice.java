@@ -174,6 +174,8 @@ public class YakoStickIfDevice extends DeviceConnector {
         if (bDBG) Log.d(TAG, "onStopDevice");
         // デバイスからのデータ送信停止処理を記述してください。
         m_bluetoothGatt.disconnect();
+        m_bluetoothGatt.close();
+        Log.w(TAG, "------------------------★ gatt disconnected and closed: ");
         // 送信停止が別途完了通知を受ける場合には、falseを返してください。
         return true;
     }
@@ -276,6 +278,7 @@ public class YakoStickIfDevice extends DeviceConnector {
         // デバイスとの接続経路(WiFi, BLE, and so on・・・)を有効にする処理を記述してください。
         if (bDBG) Log.i(TAG, "------------------------★ startScan");
         m_scanner.startScan( m_scanFilters, m_scanSettings, m_scanCallback );
+        m_startDeviceRequest = true;
         new Handler().postDelayed(new Runnable() {
             @Override
             public void run() {
@@ -353,11 +356,12 @@ public class YakoStickIfDevice extends DeviceConnector {
         public void onConnectionStateChange(BluetoothGatt gatt, int status, int newState) {
             m_connectionState = newState;
             if (newState == BluetoothProfile.STATE_CONNECTED) {
-                if (bDBG) Log.i(TAG, "------------------★★★ Connected to GATT Server" + status);
+                if (bDBG) Log.i(TAG, "------------------★★★ Connected to GATT Server:" + status);
                 boolean ret = m_bluetoothGatt.discoverServices();
                 if (bDBG) Log.i(TAG, "Attempting to start service discovery:" + ret );
             } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
                 if (bDBG) Log.i(TAG, "----------------------★ Disconnected from GATT server.");
+                m_dev.notifyStopDevice();
             }
         }
 
