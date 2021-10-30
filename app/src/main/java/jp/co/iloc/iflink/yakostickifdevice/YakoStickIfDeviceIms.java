@@ -50,7 +50,7 @@ public class YakoStickIfDeviceIms extends IfLinkConnector {
 
     @Override
     protected final void updateLogLevelSettings(final Set<String> settings) {
-        if (bDBG) Log.d(TAG, "LogLevel settings=" + settings);
+        Log.d(TAG, "LogLevel settings=" + settings);
         super.updateLogLevelSettings(settings);
 
         boolean isEnabledLog = false;
@@ -83,6 +83,7 @@ public class YakoStickIfDeviceIms extends IfLinkConnector {
         }
 
         YakoStickIfDevice yakoStick = new YakoStickIfDevice( this, adapter );
+        mDeviceList.add(yakoStick);
     }
 
     @Override
