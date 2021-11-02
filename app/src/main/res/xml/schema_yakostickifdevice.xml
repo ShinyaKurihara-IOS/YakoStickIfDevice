@@ -11,7 +11,10 @@
         type="timestamp" />
     <!-- デバイス固有設定 Sample Start -->
     <property
-        name="yakostickifdevice"
+        name="XYZADVal"
+        type="long" />
+    <property
+        name="SensorOnOff"
         type="int" />
     <!-- デバイス固有設定 Sample End -->
 </schema>

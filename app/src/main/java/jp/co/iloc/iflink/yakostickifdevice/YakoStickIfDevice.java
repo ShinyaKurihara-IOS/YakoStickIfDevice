@@ -21,6 +21,7 @@ import androidx.annotation.Nullable;
 
 import android.util.Log;
 
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.HashMap;
@@ -208,14 +209,8 @@ public class YakoStickIfDevice extends DeviceConnector {
      *
      * @param data 送信するデータ.
      */
-    public void sendData(final int data) {
-        Log.i(TAG, "sendDeviceData data=" + data);
-        // 送信データクリア
-        clearData();
-        // データの登録.
-        addData(new EPAdata("yakostickifdevice", "int", String.valueOf(data)));
-        //ifLink Coreへデータを送信する.
-        notifyRecvData();
+    public void sendData(final long data) {
+
     }
     //If Sample end
 
@@ -276,15 +271,17 @@ public class YakoStickIfDevice extends DeviceConnector {
     public final boolean reconnectPath() {
         if (bDBG) Log.d(TAG, "reconnectPath");
         // デバイスとの接続経路(WiFi, BLE, and so on・・・)を有効にする処理を記述してください。
-        if (bDBG) Log.i(TAG, "------------------------★ startScan");
-        m_scanner.startScan( m_scanFilters, m_scanSettings, m_scanCallback );
-        m_startDeviceRequest = true;
-        new Handler().postDelayed(new Runnable() {
-            @Override
-            public void run() {
-                m_scanner.stopScan(m_scanCallback);
-            }
-        }, SCAN_PERIOD);
+        if (m_connectionState == BluetoothProfile.STATE_DISCONNECTED) {
+            if (bDBG) Log.i(TAG, "------------------------★ startScan");
+            m_scanner.startScan(m_scanFilters, m_scanSettings, m_scanCallback);
+            m_startDeviceRequest = true;
+            new Handler().postDelayed(new Runnable() {
+                @Override
+                public void run() {
+                    m_scanner.stopScan(m_scanCallback);
+                }
+            }, SCAN_PERIOD);
+        }
         return true;
     }
 
@@ -352,16 +349,21 @@ public class YakoStickIfDevice extends DeviceConnector {
 
     private final BluetoothGattCallback gattCallback = new BluetoothGattCallback() {
 
+        private int m_dataNum = 0;
+        private byte[] m_data = new byte[7];
+
         @Override
         public void onConnectionStateChange(BluetoothGatt gatt, int status, int newState) {
-            m_connectionState = newState;
+
             if (newState == BluetoothProfile.STATE_CONNECTED) {
                 if (bDBG) Log.i(TAG, "------------------★★★ Connected to GATT Server:" + status);
                 boolean ret = m_bluetoothGatt.discoverServices();
                 if (bDBG) Log.i(TAG, "Attempting to start service discovery:" + ret );
+                m_connectionState = newState;
             } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
                 if (bDBG) Log.i(TAG, "----------------------★ Disconnected from GATT server.");
                 m_dev.notifyStopDevice();
+                m_connectionState = newState;
             }
         }
 
@@ -398,6 +400,59 @@ public class YakoStickIfDevice extends DeviceConnector {
                                             BluetoothGattCharacteristic characteristic) {
             byte[] data = characteristic.getValue();
             if (bDBG) Log.d(TAG, "notify data :" + String.format("0x%02x", data[0]));
+
+            if ( m_dataNum < 6 ) {
+                m_data[m_dataNum] = data[0];
+                m_dataNum++;
+            } else {
+                // 6バイト受信した後に0xFF(javaは-1)を受信するとデータ送信。
+                if ( data[0] == -1 ) {
+                    // xが0xFFFFならSensorOnOffにONを設定
+                    if ( m_data[0] == -1 && m_data[1] == -1 ) {
+                        if (bDBG) Log.d(TAG, "send data : SensorOnOff=ON");
+                        // 送信データクリア
+                        clearData();
+                        // データの登録.
+                        addData(new EPAdata("SensorOnOff", "int", String.valueOf(1)));
+                        //ifLink Coreへデータを送信する.
+                        notifyRecvData();
+                        m_dataNum = 0;
+                    // yが0xFFFFならSensorOnOffにOFFを設定
+                    } else if ( m_data[2] == -1 && m_data[3] == -1 ) {
+                        if (bDBG) Log.d(TAG, "send data : SensorOnOff=OFF");
+                        // 送信データクリア
+                        clearData();
+                        // データの登録.
+                        addData(new EPAdata("SensorOnOff", "int", String.valueOf(0)));
+                        //ifLink Coreへデータを送信する.
+                        notifyRecvData();
+                        m_dataNum = 0;
+                    } else if ( m_data[4] == -1 && m_data[5] == -1 ) {
+                        // 切断しないように無効データ(z軸が0xffffff)を定期的に送ってくる.
+                        if (bDBG) Log.d(TAG, "ignore data");
+                        m_dataNum = 0;
+                    } else {
+                        byte[] xBytes = {m_data[1], m_data[0]};
+                        byte[] yBytes = {m_data[3], m_data[2]};
+                        byte[] zBytes = {m_data[5], m_data[4]};
+                        int xVal = ByteBuffer.wrap(xBytes).getShort();
+                        int yVal = ByteBuffer.wrap(yBytes).getShort();
+                        int zVal = ByteBuffer.wrap(zBytes).getShort();
+
+                        if (bDBG) Log.d(TAG, "send data :" + String.format("AdVal X=%d Y=%d Z=%d", xVal, yVal, zVal));
+
+                        // 送信データクリア
+                        clearData();
+                        // データの登録.
+                        addData(new EPAdata("AdValX", "int", String.valueOf(xVal)));
+                        addData(new EPAdata("AdValY", "int", String.valueOf(yVal)));
+                        addData(new EPAdata("AdValZ", "int", String.valueOf(zVal)));
+                        //ifLink Coreへデータを送信する.
+                        notifyRecvData();
+                        m_dataNum = 0;
+                    }
+                }
+            }
         }
     };
 

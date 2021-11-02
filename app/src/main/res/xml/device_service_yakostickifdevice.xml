@@ -9,25 +9,25 @@
             value="YakoStickIfDevice">
             <if>
                 <condition
-                    name="サンプルデータが閾値を上回ったら"
+                    name="ボタン操作すると"
                     icon="notification.png"
-                    interface="sample"
+                    interface="BLE"
                     key="dataname"
-                    value="yakostickifdevice">
+                    value="SensorOnOff">
                     <property
-                        name="判断"
+                        name="条件"
                         datatype="string"
                         key="compare"
                         type="hidden"
-                        value="ge" />
+                        value="equal" />
                     <property
-                        name="閾値"
+                        name="ボタン"
                         datatype="int"
                         default="0"
                         key="value"
-                        max="360"
-                        min="0"
-                        type="text" />
+                        option="押す,離す"
+                        value="0,1"
+                        type="radio" />
                 </condition>
             </if>
             <then>
@@ -56,25 +56,25 @@
             value="YakoStickIfDevice">
             <if>
                 <condition
-                    name="When the sensor data exceeds the threshold value"
+                    name="push button"
                     icon="notification.png"
-                    interface="sample"
+                    interface="BLE"
                     key="dataname"
-                    value="yakostickifdevice">
+                    value="SensorOnOff">
                     <property
-                        name="Judgment"
+                        name="condition"
                         datatype="string"
                         key="compare"
                         type="hidden"
-                        value="ge" />
+                        value="equal" />
                     <property
-                        name="Threshold"
+                        name="button"
                         datatype="int"
                         default="0"
                         key="value"
-                        max="360"
-                        min="0"
-                        type="text" />
+                        option="push,release"
+                        value="0,1"
+                        type="radio" />
                 </condition>
             </if>
             <then>
@@ -105,7 +105,10 @@
             name="timestamp"
             type="timestamp" />
         <property
-            name="yakostickifdevice"
+            name="XYZADVal"
             type="int" />
+        <property
+            name="SensorOnOff"
+            type="long" />
     </schema>
 </iflink>
