@@ -45,7 +45,7 @@ import android.bluetooth.le.BluetoothLeScanner;
 import android.bluetooth.le.ScanCallback;
 import android.bluetooth.le.ScanResult;
 
-public class YakoStickIfDevice extends DeviceConnector {
+public class YakoStickIfDevice<syncronized> extends DeviceConnector {
     /**
      * ログ出力用タグ名.
      */
@@ -53,7 +53,9 @@ public class YakoStickIfDevice extends DeviceConnector {
     /**
      * メッセージを取得するキー.
      */
-    private static final String YAKOSTICKIFDEVICE_JOB_KEY = "yakostickifdevice_job_key";
+    private static final String COLORANDBRIGHTNESS_KEY = "ColorAndBrightness";
+    private static final String COLOR_KEY = "Color";
+    private static final String BRIGHTNESS_KEY = "Brightness";
     /**
      * ログ出力切替フラグ.
      */
@@ -104,6 +106,19 @@ public class YakoStickIfDevice extends DeviceConnector {
     private int m_connectionState = BluetoothProfile.STATE_DISCONNECTED;
 
     /**
+     * Then処理用パラメータ
+     */
+    private final byte BRIGHTNESS_OFF   = (byte) 0;
+    private final byte BRIGHTNESS_LOW   = (byte) 25;
+    private final byte BRIGHTNESS_MID   = (byte) 50;
+    private final byte BRIGHTNESS_HIGH  = (byte) 125;
+    private byte m_red   = (byte) 0;
+    private byte m_green = (byte) 0;
+    private byte m_blue  = (byte) 0;
+    private byte m_brightness = (byte) 0;
+    private byte[] m_ledDriveParam = {(byte)'$', (byte)'l', BRIGHTNESS_OFF, BRIGHTNESS_OFF, BRIGHTNESS_OFF};
+
+    /**
      * コンストラクタ.
      *
      * @param ims IMS
@@ -129,6 +144,7 @@ public class YakoStickIfDevice extends DeviceConnector {
 
         m_adapter = adapter;
         m_dev = this;
+        m_bluetoothGatt = null;
         // サンプル用：ここでデバイスを登録します。
         // 基本は、デバイスとの接続確立後、デバイスの対応したシリアル番号に更新してからデバイスを登録してください。
         addDevice();
@@ -176,6 +192,7 @@ public class YakoStickIfDevice extends DeviceConnector {
         // デバイスからのデータ送信停止処理を記述してください。
         m_bluetoothGatt.disconnect();
         m_bluetoothGatt.close();
+        m_bluetoothGatt = null;
         Log.w(TAG, "------------------------★ gatt disconnected and closed: ");
         // 送信停止が別途完了通知を受ける場合には、falseを返してください。
         return true;
@@ -183,36 +200,110 @@ public class YakoStickIfDevice extends DeviceConnector {
 
     @Override
     public boolean onJob(final HashMap<String, Object> map) {
-        //Toast Sample start
-        if (map.containsKey(YAKOSTICKIFDEVICE_JOB_KEY)) {
-            final String strVal = String.valueOf(map.get(YAKOSTICKIFDEVICE_JOB_KEY));
-            // 抽出したパラメータの型変換
-            String val = strVal;
-            // 抽出したパラメータを元に実際の制御を記述してください。
-            handler.post(new Runnable() {
-                public void run() {
-                    Toast.makeText(mIms, strVal, Toast.LENGTH_LONG).show();
-                }
-            });
+
+        if (map.containsKey(COLOR_KEY)) {
+            /* int  ０から白・赤・橙・黄・緑・水色・青・紫の順。 */
+            if (bDBG) Log.d(TAG, "onJob COLOR_KEY.");
+            String tempStr = String.valueOf(map.get(COLOR_KEY));
+            int color = Integer.parseInt(tempStr);
+            switch (color) {
+                case 0: // 白
+                    m_red = 2;
+                    m_green = 2;
+                    m_blue = 2;
+                    break;
+                case 1: // 赤
+                    m_red = 2;
+                    m_green = 0;
+                    m_blue = 0;
+                    break;
+                case 2: // 橙
+                    m_red = 2;
+                    m_green = 1;
+                    m_blue = 0;
+                    break;
+                case 3: // 黄
+                    m_red = 2;
+                    m_green = 2;
+                    m_blue = 0;
+                    break;
+                case 4: // 緑
+                    m_red = 0;
+                    m_green = 2;
+                    m_blue = 0;
+                    break;
+                case 5: // 水色
+                    m_red = 1;
+                    m_green = 1;
+                    m_blue = 2;
+                    break;
+                case 6: // 青
+                    m_red = 0;
+                    m_green = 0;
+                    m_blue = 2;
+                    break;
+                case 7: // 紫
+                    m_red = 2;
+                    m_green = 0;
+                    m_blue = 2;
+                    break;
+                default:
+                    break;
+            }
         }
-        //Toast Sample end
+        else if (map.containsKey(BRIGHTNESS_KEY)) {
+            /* 明るさ int型 0:消灯 1:弱 2:中 3:強 */
+            if (bDBG) Log.d(TAG, "onJob BRIGHTNESS_KEY.");
+            String tempStr = String.valueOf(map.get(BRIGHTNESS_KEY));
+            int brightness = (byte)Integer.parseInt(tempStr);
+            switch (brightness) {
+                case 0: // 消灯
+                    m_brightness = BRIGHTNESS_OFF;
+                    break;
+                case 1: // 弱
+                    m_brightness = BRIGHTNESS_LOW;
+                    break;
+                case 2: // 中
+                    m_brightness = BRIGHTNESS_MID;
+                    break;
+                case 3: // 強
+                    m_brightness = BRIGHTNESS_HIGH;
+                    break;
+                default:
+                    break;
+            }
+        }
+        else if (map.containsKey(COLORANDBRIGHTNESS_KEY)) {
+            if (bDBG) Log.d(TAG, "onJob COLORANDBRIGHTNESS_KEY.");
+            int coandbr = (int) map.get(COLORANDBRIGHTNESS_KEY);
+        } else {
+            if (bDBG) Log.d(TAG, "onJob no execute.");
+        }
+
         return false;
     }
 
-    //If Sample start
+    synchronized public void executeLedControl() {
+        BluetoothGattService service = m_bluetoothGatt.getService(UUID_PRIMARY_SERVICE);
+        if (service != null) {
+            BluetoothGattCharacteristic write_characteristic = service.getCharacteristic(UUID_CHARACTERISTIC_WRITE);
+            if (write_characteristic != null) {
+                Log.w(TAG, "write characteristic");
 
-    /**
-     * 「yakostickifdevice」データを送信する.
-     * ※サンプルとして実装したメソッドです.
-     * このメソッドをデバイスからデータを受信したタイミング等で呼び出せば.
-     * ifLink Core側にデータが送信されます.
-     *
-     * @param data 送信するデータ.
-     */
-    public void sendData(final long data) {
+                // 赤
+                m_ledDriveParam[2] = (byte) (m_red * m_brightness);
+                // 緑
+                m_ledDriveParam[3] = (byte) (m_green * m_brightness);
+                // 青
+                m_ledDriveParam[4] = (byte) (m_blue * m_brightness);
 
+                // デバイスに通知.
+                write_characteristic.setValue(m_ledDriveParam);
+                write_characteristic.setWriteType(BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE);
+                m_bluetoothGatt.writeCharacteristic(write_characteristic);
+            }
+        }
     }
-    //If Sample end
 
     @Override
     public void enableLogLocal(final boolean enabled) {
@@ -331,7 +422,11 @@ public class YakoStickIfDevice extends DeviceConnector {
             }
             if (bDBG) Log.i(TAG, "--------------------★★ address:" + m_device.getAddress());
             if (bDBG) Log.i(TAG, "--------------------★★ name:" + m_device.getName());
-
+            if ( m_bluetoothGatt != null ) {
+                m_bluetoothGatt.disconnect();
+                m_bluetoothGatt.close();
+                m_bluetoothGatt = null;
+            }
             m_bluetoothGatt = m_device.connectGatt( mIms.getApplicationContext(), false, gattCallback );
             m_scanner.stopScan(m_scanCallback);
         }
@@ -451,6 +546,8 @@ public class YakoStickIfDevice extends DeviceConnector {
                         notifyRecvData();
                         m_dataNum = 0;
                     }
+                    // LED制御
+                    executeLedControl();
                 }
             }
         }
@@ -472,6 +569,7 @@ public class YakoStickIfDevice extends DeviceConnector {
             return true;
         } else {
             Log.w(TAG, "------------------------★ service　is null: ");
+            m_dev.notifyStopDevice();
             m_connectionState = BluetoothProfile.STATE_DISCONNECTED;
         }
         return false;
