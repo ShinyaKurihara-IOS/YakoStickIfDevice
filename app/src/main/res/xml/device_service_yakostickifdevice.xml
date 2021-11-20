@@ -1,48 +1,62 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<iflink>
+<iflink type="deviceservice" datamodel_version="1">
     <language name="jp">
         <device
-            name="ヤコースティックIFデバイス"
-            dataitem="sample"
+            name="ヤコースティック"
+            dataitem="ボタン,加速度,led色,明るさ"
             icon="yakostickifdevicedevice.png"
             key="devicename"
             value="YakoStickIfDevice">
             <if>
-                <condition
-                    name="ボタン操作すると"
-                    icon="notification.png"
-                    interface="BLE"
-                    key="dataname"
-                    value="SensorOnOff">
-                    <property
-                        name="条件"
-                        datatype="string"
-                        key="compare"
-                        type="hidden"
-                        value="equal" />
-                    <property
-                        name="ボタン"
-                        datatype="int"
-                        default="0"
-                        key="value"
-                        option="押す,離す"
-                        value="0,1"
-                        type="radio" />
-                </condition>
+                <param name="加速度X軸AD値 (AdValX)" key="dataname" value="AdValX" interface="BLE">
+                    <condition name="しきい値以上" icon="data_x.png">
+                        <property name="判断" datatype="string" type="text" key="compare" value="ge" />
+                        <property name="しきい値" datatype="int" type="text" key="value" default="100" min="-32768" max="32767" />
+                    </condition>
+                    <condition name="しきい値以下" icon="data_x.png">
+                        <property name="判断" datatype="string" type="text" key="compare" value="le" />
+                        <property name="しきい値" datatype="int" type="text" key="value" default="99" min="-32768" max="32767" />
+                    </condition>
+                </param>
+                <param name="加速度Y軸AD値 (AdValY)" key="dataname" value="AdValY" interface="BLE">
+                    <condition name="しきい値以上" icon="data_y.png">
+                        <property name="判断" datatype="string" type="text" key="compare" value="ge" />
+                        <property name="しきい値" datatype="int" type="text" key="value" default="100" min="-32768" max="32767" />
+                    </condition>
+                    <condition name="しきい値以下" icon="data_y.png">
+                        <property name="判断" datatype="string" type="text" key="compare" value="le" />
+                        <property name="しきい値" datatype="int" type="text" key="value" default="99" min="-32768" max="32767" />
+                    </condition>
+                </param>
+                <param name="加速度Z軸AD値 (AdValZ)" key="dataname" value="AdValZ" interface="BLE">
+                    <condition name="しきい値以上" icon="data_z.png">
+                        <property name="判断" datatype="string" type="text" key="compare" value="ge" />
+                        <property name="しきい値" datatype="int" type="text" key="value" default="100" min="-32768" max="32767" />
+                    </condition>
+                    <condition name="しきい値以下" icon="data_z.png">
+                        <property name="判断" datatype="string" type="text" key="compare" value="le" />
+                        <property name="しきい値" datatype="int" type="text" key="value" default="99" min="-32768" max="32767" />
+                    </condition>
+                </param>
+				<param name="ボタン操作" key="dataname" value="SensorOnOff" interface="BLE">
+	                <condition name="ボタン操作すると" icon="notification.png">
+	                    <property name="条件" datatype="string" key="compare" type="hidden" value="equal" />
+	                    <property name="ボタン" datatype="int" default="0" key="value" option="押す,離す" value="0,1" type="radio" />
+	                </condition>
+                </param>
             </if>
             <then>
-                <condition
-                    name="動作"
-                    icon="notification.png"
-                    interface="sample"
-                    key="control"
-                    value="yakostickifdevice">
-                    <property
-                        name="パラメータ"
-                        datatype="string"
-                        default="0"
-                        key="yakostickifdevice_job_key"
-                        type="text" />
+                <condition name="LED点灯方法" icon="notification.png" interface="BLE" key="control" value="yakostickifdevice">
+                    <property name="点灯方法" datatype="int" default="0" key="Drive" type="radio" value="0,1,2" option="点灯,点滅（速）,点滅（ゆっくり）" />
+                </condition>
+                <condition name="LED色" icon="notification.png" interface="BLE" key="control" value="yakostickifdevice">
+                    <property name="色" datatype="int" default="0" key="Color" type="radio" value="0,1,2,3,4,5,6,7" option="白,赤,橙,黄,緑,水色,青,紫" />
+                </condition>
+                <condition name="LED明るさ" icon="notification.png" interface="BLE" key="control" value="yakostickifdevice">
+                    <property name="明るさ" datatype="int" default="0" key="Brightness" type="radio" value="0,1,2,3" option="消灯,弱,中,強" />
+                </condition>
+                <condition name="LED色と明るさ" icon="notification.png" interface="BLE" key="control" value="yakostickifdevice">
+                    <property name="10の桁:明るさ 1の桁:色" datatype="int" default="0" key="ColorAndBrightness" type="text" min="0" max="37" />
                 </condition>
             </then>
         </device>
@@ -55,40 +69,55 @@
             key="devicename"
             value="YakoStickIfDevice">
             <if>
-                <condition
-                    name="push button"
-                    icon="notification.png"
-                    interface="BLE"
-                    key="dataname"
-                    value="SensorOnOff">
-                    <property
-                        name="condition"
-                        datatype="string"
-                        key="compare"
-                        type="hidden"
-                        value="equal" />
-                    <property
-                        name="button"
-                        datatype="int"
-                        default="0"
-                        key="value"
-                        option="push,release"
-                        value="0,1"
-                        type="radio" />
-                </condition>
+                <param name="AccelSensor X A/D Value" key="dataname" value="AdValX" interface="BLE">
+                    <condition name="greater" icon="data_x.png">
+                        <property name="judge" datatype="string" type="hidden" key="compare" value="ge" />
+                        <property name="param" datatype="int" type="text" key="value" default="100" min="-32768" max="32767" />
+                    </condition>
+                    <condition name="less" icon="data_x.png">
+                        <property name="judge" datatype="string" type="hidden" key="compare" value="le" />
+                        <property name="param" datatype="int" type="text" key="value" default="99" min="-32768" max="32767" />
+                    </condition>
+                </param>
+                <param name="AccelSensor Y A/D Value" key="dataname" value="AdValY" interface="BLE">
+                    <condition name="greater" icon="data_y.png">
+                        <property name="judge" datatype="string" type="hidden" key="compare" value="ge" />
+                        <property name="param" datatype="int" type="text" key="value" default="100" min="-32768" max="32767" />
+                    </condition>
+                    <condition name="less" icon="data_y.png">
+                        <property name="judge" datatype="string" type="hidden" key="compare" value="le" />
+                        <property name="param" datatype="int" type="text" key="value" default="100" min="-32768" max="32767" />
+                    </condition>
+                </param>
+                <param name="AccelSensor Z A/D Value" key="dataname" value="AdValZ" interface="BLE">
+                    <condition name="greater" icon="data_z.png">
+                        <property name="judge" datatype="string" type="hidden" key="compare" value="ge" />
+                        <property name="param" datatype="int" type="text" key="value" default="100" min="-32768" max="32767" />
+                    </condition>
+                    <condition name="less" icon="data_z.png">
+                        <property name="judge" datatype="string" type="hidden" key="compare" value="le" />
+                        <property name="param" datatype="int" type="text" key="value" default="100" min="-32768" max="32767" />
+                    </condition>
+                </param>
+                <param name="button" key="dataname"  value="SensorOnOff" interface="BLE">
+                	<condition name="push or release button" icon="notification.png">
+                	    <property name="judge" datatype="string" key="compare" type="hidden" value="equal" />
+                	    <property name="param" datatype="int" default="0" key="value" option="push,release" value="0,1" type="radio" />
+                	</condition>
+                </param>
             </if>
             <then>
-                <condition
-                    name="condition"
-                    icon="notification.png"
-                    interface="sample"
-                    key="control"
-                    value="yakostickifdevice">
-                    <property
-                        name="parameter"
-                        datatype="string"
-                        key="yakostickifdevice_job_key"
-                        type="text" />
+                <condition name="LED　drive" icon="notification.png" interface="BLE" key="control" value="yakostickifdevice">
+                    <property name="drive" datatype="int" default="0" key="Drive" type="radio" value="0,1,2" option="on,brink(fast）,brink（slow）" />
+                </condition>
+                <condition name="LED color" icon="notification.png" interface="BLE" key="control" value="yakostickifdevice">
+                    <property name="color" datatype="int" default="0" key="Color" type="radio" value="0,1,2,3,4,5,6,7" option="white,red,orange,yellow,green,cyan,blue,violet" />
+                </condition>
+                <condition name="LED brightness" icon="notification.png" interface="BLE" key="control" value="yakostickifdevice">
+                    <property name="brightness" datatype="int" default="0" key="Brightness" type="radio" value="0,1,2,3" option="off,low,middle,high" />
+                </condition>
+                <condition name="LED color and brightness" icon="notification.png" interface="BLE" key="control" value="yakostickifdevice">
+                    <property name="10の桁明るさ 1の桁:色" datatype="int" default="0" key="ColorAndBrightness" type="text" min="0" max="37" />
                 </condition>
             </then>
         </device>
@@ -105,10 +134,16 @@
             name="timestamp"
             type="timestamp" />
         <property
-            name="XYZADVal"
+            name="AdValX"
+            type="int" />
+        <property
+            name="AdValY"
+            type="int" />
+        <property
+            name="AdValZ"
             type="int" />
         <property
             name="SensorOnOff"
-            type="long" />
+            type="int" />
     </schema>
 </iflink>

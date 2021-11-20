@@ -11,8 +11,14 @@
         type="timestamp" />
     <!-- デバイス固有設定 Sample Start -->
     <property
-        name="XYZADVal"
-        type="long" />
+        name="AdValX"
+        type="int" />
+    <property
+        name="AdValY"
+        type="int" />
+    <property
+        name="AdValZ"
+        type="int" />
     <property
         name="SensorOnOff"
         type="int" />

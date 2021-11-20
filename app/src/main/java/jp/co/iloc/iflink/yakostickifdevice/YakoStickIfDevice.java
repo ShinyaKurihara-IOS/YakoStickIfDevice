@@ -45,7 +45,7 @@ import android.bluetooth.le.BluetoothLeScanner;
 import android.bluetooth.le.ScanCallback;
 import android.bluetooth.le.ScanResult;
 
-public class YakoStickIfDevice extends DeviceConnector {
+public class YakoStickIfDevice<syncronized> extends DeviceConnector {
     /**
      * ログ出力用タグ名.
      */
@@ -53,7 +53,10 @@ public class YakoStickIfDevice extends DeviceConnector {
     /**
      * メッセージを取得するキー.
      */
-    private static final String YAKOSTICKIFDEVICE_JOB_KEY = "yakostickifdevice_job_key";
+    private static final String COLORANDBRIGHTNESS_KEY = "ColorAndBrightness";
+    private static final String DRIVE_KEY = "Drive";
+    private static final String COLOR_KEY = "Color";
+    private static final String BRIGHTNESS_KEY = "Brightness";
     /**
      * ログ出力切替フラグ.
      */
@@ -104,6 +107,19 @@ public class YakoStickIfDevice extends DeviceConnector {
     private int m_connectionState = BluetoothProfile.STATE_DISCONNECTED;
 
     /**
+     * Then処理用パラメータ
+     */
+    private final byte BRIGHTNESS_OFF   = (byte) 0;
+    private final byte BRIGHTNESS_LOW   = (byte) 10;
+    private final byte BRIGHTNESS_MID   = (byte) 30;
+    private final byte BRIGHTNESS_HIGH  = (byte) 50;
+    private byte m_drive = (byte) 'l';
+    private byte m_red   = (byte) 5;
+    private byte m_green = (byte) 5;
+    private byte m_blue  = (byte) 5;
+    private byte m_brightness = BRIGHTNESS_OFF;
+
+    /**
      * コンストラクタ.
      *
      * @param ims IMS
@@ -129,6 +145,7 @@ public class YakoStickIfDevice extends DeviceConnector {
 
         m_adapter = adapter;
         m_dev = this;
+        m_bluetoothGatt = null;
         // サンプル用：ここでデバイスを登録します。
         // 基本は、デバイスとの接続確立後、デバイスの対応したシリアル番号に更新してからデバイスを登録してください。
         addDevice();
@@ -176,43 +193,171 @@ public class YakoStickIfDevice extends DeviceConnector {
         // デバイスからのデータ送信停止処理を記述してください。
         m_bluetoothGatt.disconnect();
         m_bluetoothGatt.close();
-        Log.w(TAG, "------------------------★ gatt disconnected and closed: ");
+        m_bluetoothGatt = null;
+        if (bDBG) Log.i(TAG, "------------------------★ gatt disconnected and closed: ");
         // 送信停止が別途完了通知を受ける場合には、falseを返してください。
         return true;
     }
 
     @Override
     public boolean onJob(final HashMap<String, Object> map) {
-        //Toast Sample start
-        if (map.containsKey(YAKOSTICKIFDEVICE_JOB_KEY)) {
-            final String strVal = String.valueOf(map.get(YAKOSTICKIFDEVICE_JOB_KEY));
-            // 抽出したパラメータの型変換
-            String val = strVal;
-            // 抽出したパラメータを元に実際の制御を記述してください。
-            handler.post(new Runnable() {
-                public void run() {
-                    Toast.makeText(mIms, strVal, Toast.LENGTH_LONG).show();
-                }
-            });
+
+        byte red   = m_red;
+        byte green = m_green;
+        byte blue  = m_blue;
+        byte brightness = m_brightness;
+        byte drive = m_drive;
+        String tempStr;
+        int temp;
+
+        if (map.containsKey(DRIVE_KEY)) {
+            /* int  ０:常時点灯 1:高速点滅 2:ゆっくり点滅 */
+            tempStr = String.valueOf(map.get(DRIVE_KEY));
+            temp = Integer.parseInt(tempStr);
+            switch (temp) {
+                case 0: // 常時点灯
+                    if (bDBG) Log.i(TAG, "onJob DRIVE=0. TURN ON");
+                    drive = (byte) 'l';
+                    break;
+                case 1: // 高速点滅
+                    if (bDBG) Log.i(TAG, "onJob DRIVE=1. BRINK FAST");
+                    drive = (byte) 'b';
+                    break;
+                case 2: // ゆっくり点滅
+                    if (bDBG) Log.i(TAG, "onJob DRIVE=2. BRINK SLOW");
+                    drive = (byte) 's';
+                    break;
+            }
+
+        } else if (map.containsKey(COLOR_KEY)) {
+            /* int  ０から白・赤・橙・黄・緑・水色・青・紫の順。 */
+            tempStr = String.valueOf(map.get(COLOR_KEY));
+            temp = Integer.parseInt(tempStr);
+            switch (temp) {
+                case 0: // 白
+                    if (bDBG) Log.i(TAG, "onJob COLOR=0. drive white");
+                    red = 5;
+                    green = 5;
+                    blue = 5;
+                    break;
+                case 1: // 赤
+                    if (bDBG) Log.i(TAG, "onJob COLOR=1. drive red");
+                    red = 5;
+                    green = 0;
+                    blue = 0;
+                    break;
+                case 2: // 橙
+                    if (bDBG) Log.i(TAG, "onJob COLOR=2. drive orange");
+                    red = 4;
+                    green = 1;
+                    blue = 0;
+                    break;
+                case 3: // 黄
+                    if (bDBG) Log.i(TAG, "onJob COLOR=3. drive yellow");
+                    red = 3;
+                    green = 3;
+                    blue = 0;
+                    break;
+                case 4: // 緑
+                    if (bDBG) Log.i(TAG, "onJob COLOR=4. drive green");
+                    red = 0;
+                    green = 5;
+                    blue = 0;
+                    break;
+                case 5: // 水色
+                    if (bDBG) Log.i(TAG, "onJob COLOR=5. drive cyan");
+                    red = 1;
+                    green = 1;
+                    blue = 4;
+                    break;
+                case 6: // 青
+                    if (bDBG) Log.i(TAG, "onJob COLOR=6. drive blue");
+                    red = 0;
+                    green = 0;
+                    blue = 5;
+                    break;
+                case 7: // 紫
+                    if (bDBG) Log.i(TAG, "onJob COLOR=7. drive purple");
+                    red = 3;
+                    green = 0;
+                    blue = 3;
+                    break;
+                default:
+                    if (bDBG) Log.i(TAG, "onJob COLOR=invalid. ignore");
+                    break;
+            }
+
+        } else if (map.containsKey(BRIGHTNESS_KEY)) {
+            /* 明るさ int型 0:消灯 1:弱 2:中 3:強 */
+            tempStr = String.valueOf(map.get(BRIGHTNESS_KEY));
+            temp = (byte) Integer.parseInt(tempStr);
+            switch (temp) {
+                case 0: // 消灯
+                    if (bDBG) Log.i(TAG, "onJob BRIGHTNESS=0. drive off");
+                    brightness = BRIGHTNESS_OFF;
+                    break;
+                case 1: // 弱
+                    if (bDBG) Log.i(TAG, "onJob BRIGHTNESS=1. drive low");
+                    brightness = BRIGHTNESS_LOW;
+                    break;
+                case 2: // 中
+                    if (bDBG) Log.i(TAG, "onJob BRIGHTNESS=2. drive mid");
+                    brightness = BRIGHTNESS_MID;
+                    break;
+                case 3: // 強
+                    if (bDBG) Log.i(TAG, "onJob BRIGHTNESS=3. drive high");
+                    brightness = BRIGHTNESS_HIGH;
+                    break;
+                default:
+                    break;
+            }
+        } else if (map.containsKey(COLORANDBRIGHTNESS_KEY)) {
+            int coloaandbrightness = (int) map.get(COLORANDBRIGHTNESS_KEY);
+            if (bDBG) Log.i(TAG, "onJob COLORANDBRIGHTNESS=" + coloaandbrightness + " nop");
+
+        } else {
+            if (bDBG) Log.d(TAG, "onJob no execute.");
         }
-        //Toast Sample end
-        return false;
+
+        // 変化があった場合のみデバイスに通知
+        if ( drive != m_drive || red != m_red || green != m_green || blue != m_blue || brightness != m_brightness ) {
+            m_drive = drive;
+            m_red = red;
+            m_green = green;
+            m_blue = blue;
+            m_brightness = brightness;
+            // LED制御
+            executeLedControl( drive, red, green, blue, brightness );
+        }
+
+
+        return true;
     }
 
-    //If Sample start
+    synchronized public void executeLedControl( byte drive, byte red, byte green, byte blue, byte brightness ) {
+        BluetoothGattService service = m_bluetoothGatt.getService(UUID_PRIMARY_SERVICE);
+        if (service != null) {
+            BluetoothGattCharacteristic write_characteristic = service.getCharacteristic(UUID_CHARACTERISTIC_WRITE);
+            if (write_characteristic != null) {
 
-    /**
-     * 「yakostickifdevice」データを送信する.
-     * ※サンプルとして実装したメソッドです.
-     * このメソッドをデバイスからデータを受信したタイミング等で呼び出せば.
-     * ifLink Core側にデータが送信されます.
-     *
-     * @param data 送信するデータ.
-     */
-    public void sendData(final long data) {
+                byte[] ledParam = new byte[5];
+                ledParam[0] = (byte)'$';
+                ledParam[1] = drive;
+                ledParam[2] = (byte) (red * brightness);
+                ledParam[3] = (byte) (green * brightness);
+                ledParam[4] = (byte) (blue * brightness);
 
+                Log.i(TAG, " executeLedControl : drive" + ledParam[1] + " red:" +  ledParam[2] + " green:" + ledParam[3] + " blue:" +ledParam[4]);
+
+                // デバイスに通知.
+                write_characteristic.setValue(ledParam);
+                write_characteristic.setWriteType(BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE);
+                m_bluetoothGatt.writeCharacteristic(write_characteristic);
+                return;
+            }
+        }
+        Log.d(TAG, " executeLedControl : no execute.");
     }
-    //If Sample end
 
     @Override
     public void enableLogLocal(final boolean enabled) {
@@ -331,27 +476,35 @@ public class YakoStickIfDevice extends DeviceConnector {
             }
             if (bDBG) Log.i(TAG, "--------------------★★ address:" + m_device.getAddress());
             if (bDBG) Log.i(TAG, "--------------------★★ name:" + m_device.getName());
-
+            if ( m_bluetoothGatt != null ) {
+                m_bluetoothGatt.disconnect();
+                m_bluetoothGatt.close();
+                m_bluetoothGatt = null;
+            }
             m_bluetoothGatt = m_device.connectGatt( mIms.getApplicationContext(), false, gattCallback );
             m_scanner.stopScan(m_scanCallback);
         }
 
         @Override
         public void onBatchScanResults(List<ScanResult> results) {
-            Log.d(TAG,"----------------------★ ");
+            if (bDBG) Log.i(TAG,"----------------------★ onBatchScanResults");
         };
 
         @Override
         public void onScanFailed(int errorCode) {
-            Log.d(TAG,"----------------------★ onScanFailed:" + errorCode );
+            if (bDBG) Log.i(TAG,"----------------------★ onScanFailed:" + errorCode );
         };
     }
 
     private final BluetoothGattCallback gattCallback = new BluetoothGattCallback() {
 
-        private int m_dataNum = 0;
         private byte[] m_data = new byte[7];
 
+        private void initData() {
+            for ( int i = 0 ; i < 7 ; i++ ) {
+                m_data[i] = (byte) 0xFF;
+            }
+        }
         @Override
         public void onConnectionStateChange(BluetoothGatt gatt, int status, int newState) {
 
@@ -373,11 +526,12 @@ public class YakoStickIfDevice extends DeviceConnector {
             if (status == BluetoothGatt.GATT_SUCCESS) {
                 if (bDBG) Log.i(TAG, "----------------★★★★ onServicesDiscovered gatt success");
                 if ( m_startDeviceRequest == true ) {
+                    initData();
                     enableNotification();
                     m_dev.notifyCompleteStartDevice(true);
                 }
             } else {
-                Log.w(TAG, "onServicesDiscovered received: " + status);
+                if (bDBG) Log.i(TAG, "onServicesDiscovered received: " + status);
                 if ( m_startDeviceRequest == true ) {
                     m_dev.notifyCompleteStartDevice(false );
                 }
@@ -399,58 +553,63 @@ public class YakoStickIfDevice extends DeviceConnector {
         public void onCharacteristicChanged(BluetoothGatt gatt,
                                             BluetoothGattCharacteristic characteristic) {
             byte[] data = characteristic.getValue();
-            if (bDBG) Log.d(TAG, "notify data :" + String.format("0x%02x", data[0]));
+            byte checksum = 0;
+            for ( int i = 0 ; i < 6 ; i++ ) {
+                m_data[i] = m_data[i+1];
+                checksum += m_data[i];
+            }
+            m_data[6] = data[0];
+            if ( m_data[6] == checksum ) {
+                // xのみ0xFFFFならSensorOnOffにONを設定
+                if (m_data[0] == -1 && m_data[1] == -1 &&
+                        m_data[2] == 0 && m_data[3] == 0 &&
+                        m_data[4] == 0 && m_data[5] == 0) {
+                    if (bDBG) Log.i(TAG, "send data : SensorOnOff=ON");
+                    // 送信データクリア
+                    clearData();
+                    // データの登録.
+                    addData(new EPAdata("SensorOnOff", "int", String.valueOf(1)));
+                    //ifLink Coreへデータを送信する.
+                    notifyRecvData();
+                    initData();
+                }
 
-            if ( m_dataNum < 6 ) {
-                m_data[m_dataNum] = data[0];
-                m_dataNum++;
-            } else {
-                // 6バイト受信した後に0xFF(javaは-1)を受信するとデータ送信。
-                if ( data[0] == -1 ) {
-                    // xが0xFFFFならSensorOnOffにONを設定
-                    if ( m_data[0] == -1 && m_data[1] == -1 ) {
-                        if (bDBG) Log.d(TAG, "send data : SensorOnOff=ON");
-                        // 送信データクリア
-                        clearData();
-                        // データの登録.
-                        addData(new EPAdata("SensorOnOff", "int", String.valueOf(1)));
-                        //ifLink Coreへデータを送信する.
-                        notifyRecvData();
-                        m_dataNum = 0;
-                    // yが0xFFFFならSensorOnOffにOFFを設定
-                    } else if ( m_data[2] == -1 && m_data[3] == -1 ) {
-                        if (bDBG) Log.d(TAG, "send data : SensorOnOff=OFF");
-                        // 送信データクリア
-                        clearData();
-                        // データの登録.
-                        addData(new EPAdata("SensorOnOff", "int", String.valueOf(0)));
-                        //ifLink Coreへデータを送信する.
-                        notifyRecvData();
-                        m_dataNum = 0;
-                    } else if ( m_data[4] == -1 && m_data[5] == -1 ) {
-                        // 切断しないように無効データ(z軸が0xffffff)を定期的に送ってくる.
-                        if (bDBG) Log.d(TAG, "ignore data");
-                        m_dataNum = 0;
-                    } else {
-                        byte[] xBytes = {m_data[1], m_data[0]};
-                        byte[] yBytes = {m_data[3], m_data[2]};
-                        byte[] zBytes = {m_data[5], m_data[4]};
-                        int xVal = ByteBuffer.wrap(xBytes).getShort();
-                        int yVal = ByteBuffer.wrap(yBytes).getShort();
-                        int zVal = ByteBuffer.wrap(zBytes).getShort();
+                // xとyが0xFFFFならSensorOnOffにOFFを設定
+                if (m_data[0] == -1 && m_data[1] == -1 &&
+                        m_data[2] == -1 && m_data[3] == -1 &&
+                        m_data[4] == 0 && m_data[5] == 0) {
+                    if (bDBG) Log.i(TAG, "send data : SensorOnOff=OFF");
+                    // 送信データクリア
+                    clearData();
+                    // データの登録.
+                    addData(new EPAdata("SensorOnOff", "int", String.valueOf(0)));
+                    //ifLink Coreへデータを送信する.
+                    notifyRecvData();
+                    initData();
+                }
 
-                        if (bDBG) Log.d(TAG, "send data :" + String.format("AdVal X=%d Y=%d Z=%d", xVal, yVal, zVal));
+                if ( !(m_data[0] == -1 && m_data[1] == -1) &&
+                        !(m_data[2] == -1 && m_data[3] == -1) &&
+                        !(m_data[4] == -1 && m_data[5] == -1)) {
+                    byte[] xBytes = {m_data[1], m_data[0]};
+                    byte[] yBytes = {m_data[3], m_data[2]};
+                    byte[] zBytes = {m_data[5], m_data[4]};
+                    int xVal = ByteBuffer.wrap(xBytes).getShort();
+                    int yVal = ByteBuffer.wrap(yBytes).getShort();
+                    int zVal = ByteBuffer.wrap(zBytes).getShort();
 
-                        // 送信データクリア
-                        clearData();
-                        // データの登録.
-                        addData(new EPAdata("AdValX", "int", String.valueOf(xVal)));
-                        addData(new EPAdata("AdValY", "int", String.valueOf(yVal)));
-                        addData(new EPAdata("AdValZ", "int", String.valueOf(zVal)));
-                        //ifLink Coreへデータを送信する.
-                        notifyRecvData();
-                        m_dataNum = 0;
-                    }
+                    if (bDBG)
+                        Log.i(TAG, "send data :" + String.format("AdVal X=%d Y=%d Z=%d", xVal, yVal, zVal));
+
+                    // 送信データクリア
+                    clearData();
+                    // データの登録.
+                    addData(new EPAdata("AdValX", "int", String.valueOf(xVal)));
+                    addData(new EPAdata("AdValY", "int", String.valueOf(yVal)));
+                    addData(new EPAdata("AdValZ", "int", String.valueOf(zVal)));
+                    //ifLink Coreへデータを送信する.
+                    notifyRecvData();
+                    initData();
                 }
             }
         }
@@ -463,7 +622,7 @@ public class YakoStickIfDevice extends DeviceConnector {
     public boolean enableNotification() {
         BluetoothGattService service = m_bluetoothGatt.getService(UUID_PRIMARY_SERVICE);
         if (service != null) {
-            Log.w(TAG, "-----------------★★★★★ enable notification");
+            if (bDBG) Log.i(TAG, "-----------------★★★★★ enable notification");
             BluetoothGattCharacteristic characteristic = service.getCharacteristic(UUID_CHARACTERISTIC_READ);
             m_bluetoothGatt.setCharacteristicNotification(characteristic, true);
             BluetoothGattDescriptor descriptor = characteristic.getDescriptor(CLIENT_CHARACTERISTIC_CONFIG);
@@ -471,7 +630,8 @@ public class YakoStickIfDevice extends DeviceConnector {
             m_bluetoothGatt.writeDescriptor(descriptor);
             return true;
         } else {
-            Log.w(TAG, "------------------------★ service　is null: ");
+            if (bDBG) Log.i(TAG, "------------------------★ service　is null: ");
+            m_dev.notifyStopDevice();
             m_connectionState = BluetoothProfile.STATE_DISCONNECTED;
         }
         return false;
