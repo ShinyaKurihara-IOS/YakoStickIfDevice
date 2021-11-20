@@ -46,7 +46,10 @@
                 </param>
             </if>
             <then>
-                <condition name="LED点灯" icon="notification.png" interface="BLE" key="control" value="yakostickifdevice">
+                <condition name="LED点灯方法" icon="notification.png" interface="BLE" key="control" value="yakostickifdevice">
+                    <property name="点灯方法" datatype="int" default="0" key="Drive" type="radio" value="0,1,2" option="点灯,点滅（速）,点滅（ゆっくり）" />
+                </condition>
+                <condition name="LED色" icon="notification.png" interface="BLE" key="control" value="yakostickifdevice">
                     <property name="色" datatype="int" default="0" key="Color" type="radio" value="0,1,2,3,4,5,6,7" option="白,赤,橙,黄,緑,水色,青,紫" />
                 </condition>
                 <condition name="LED明るさ" icon="notification.png" interface="BLE" key="control" value="yakostickifdevice">
@@ -104,6 +107,9 @@
                 </param>
             </if>
             <then>
+                <condition name="LED　drive" icon="notification.png" interface="BLE" key="control" value="yakostickifdevice">
+                    <property name="drive" datatype="int" default="0" key="Drive" type="radio" value="0,1,2" option="on,brink(fast）,brink（slow）" />
+                </condition>
                 <condition name="LED color" icon="notification.png" interface="BLE" key="control" value="yakostickifdevice">
                     <property name="color" datatype="int" default="0" key="Color" type="radio" value="0,1,2,3,4,5,6,7" option="white,red,orange,yellow,green,cyan,blue,violet" />
                 </condition>
