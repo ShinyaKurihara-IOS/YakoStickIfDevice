@@ -1,0 +1,3 @@
+rootProject.name='YakoStickIfDevice'
+include ':app'
+include ':epaapi-release', ':imsif-release', ':ui-release'

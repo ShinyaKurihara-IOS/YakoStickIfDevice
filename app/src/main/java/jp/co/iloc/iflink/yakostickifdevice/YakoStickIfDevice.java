@@ -44,6 +44,7 @@ import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.le.BluetoothLeScanner;
 import android.bluetooth.le.ScanCallback;
 import android.bluetooth.le.ScanResult;
+import java.util.concurrent.Semaphore;
 
 public class YakoStickIfDevice<syncronized> extends DeviceConnector {
     /**
@@ -53,7 +54,6 @@ public class YakoStickIfDevice<syncronized> extends DeviceConnector {
     /**
      * メッセージを取得するキー.
      */
-    private static final String COLORANDBRIGHTNESS_KEY = "ColorAndBrightness";
     private static final String DRIVE_KEY = "Drive";
     private static final String COLOR_KEY = "Color";
     private static final String BRIGHTNESS_KEY = "Brightness";
@@ -82,19 +82,18 @@ public class YakoStickIfDevice<syncronized> extends DeviceConnector {
     /**
      * Bluetooth le 接続用
      */
-    private BluetoothAdapter m_adapter;
+    private static Semaphore m_semaphore = new Semaphore(1);
     private BluetoothLeScanner m_scanner;
     private BleScancallback m_scanCallback;
-    private TYOriginalServiceRead m_read;
-    private BluetoothDevice m_device;
     private ArrayList<ScanFilter> m_scanFilters;
-    private ScanSettings m_scanSettings;
-    private BluetoothGatt m_bluetoothGatt;
     private static final long SCAN_PERIOD = 10000;
-    private boolean m_startDeviceRequest = false;
+    private ScanSettings m_scanSettings;
+    private static BluetoothDevice m_device;
+    private static BluetoothGatt m_bluetoothGatt;
+    private static boolean m_startDeviceRequest = false;
 
     /**
-     * m_characteristic設定用UUID
+     * Characteristic設定用UUID
      */
     private final UUID UUID_PRIMARY_SERVICE        = UUID.fromString( "442F1570-8A00-9A28-CBE1-E1D4212D53EB" );
     private final UUID UUID_CHARACTERISTIC_READ    = UUID.fromString( "442F1571-8A00-9A28-CBE1-E1D4212D53EB" );
@@ -104,7 +103,13 @@ public class YakoStickIfDevice<syncronized> extends DeviceConnector {
     /**
      * Bluetooth接続状態
      */
-    private int m_connectionState = BluetoothProfile.STATE_DISCONNECTED;
+    private static final int    BLE_STATUS_UNINNTIALIZE = 0;
+    private static final int    BLE_STATUS_DISCONNECTED = 1;
+    private static final int    BLE_STATUS_SCANNING     = 2;
+    private static final int    BLE_STATUS_CONNECTING   = 3;
+    private static final int    BLE_STATUS_DISCOVERING  = 4;
+    private static final int    BLE_STATUS_CONNECTED    = 5;
+    private static int m_connectionState = BLE_STATUS_UNINNTIALIZE;
 
     /**
      * Then処理用パラメータ
@@ -118,6 +123,13 @@ public class YakoStickIfDevice<syncronized> extends DeviceConnector {
     private byte m_green = (byte) 5;
     private byte m_blue  = (byte) 5;
     private byte m_brightness = BRIGHTNESS_OFF;
+
+    /**
+     * if側の送信許可インスタンス
+     * デバイス側の電源OFFなどで、bluetoothGattのコールバックが残ったまま再度接続すると
+     * 複数インスタンスある状態に陥る。if側の送信が重複するので、送信するインスタンスを絞る。
+     */
+    static Object m_connDev = null;
 
     /**
      * コンストラクタ.
@@ -143,30 +155,26 @@ public class YakoStickIfDevice<syncronized> extends DeviceConnector {
 
         mAssetName = "YAKOSTICKIFDEVICE_EPA";
 
-        m_adapter = adapter;
         m_dev = this;
-        m_bluetoothGatt = null;
+
         // サンプル用：ここでデバイスを登録します。
         // 基本は、デバイスとの接続確立後、デバイスの対応したシリアル番号に更新してからデバイスを登録してください。
         addDevice();
-        //スキャンの開始
-        m_scanner = m_adapter.getBluetoothLeScanner();
-        m_scanCallback = new BleScancallback();
 
-        ScanFilter ｓcanFilter = new ScanFilter.Builder().setDeviceName("YakoStickProto1").build();
-        m_scanFilters = new ArrayList<>();
-        m_scanFilters.add(ｓcanFilter);
-        m_scanSettings = new ScanSettings.Builder().build();
+        m_semaphore.acquireUninterruptibly();
 
-        if (bDBG) Log.i(TAG, "------------------------★ startScan");
-        m_scanner.startScan( m_scanFilters, m_scanSettings, m_scanCallback );
+        if (m_connectionState == BLE_STATUS_DISCONNECTED) {
+            //スキャンの開始
+            m_scanner = adapter.getBluetoothLeScanner();
+            m_scanCallback = new BleScancallback();
+            ScanFilter ｓcanFilter = new ScanFilter.Builder().setDeviceName("YakoStickProto1").build();
+            m_scanFilters = new ArrayList<>();
+            m_scanFilters.add(ｓcanFilter);
+            m_scanSettings = new ScanSettings.Builder().build();
+            startScan();
+        }
 
-        new Handler().postDelayed(new Runnable() {
-            @Override
-            public void run() {
-                m_scanner.stopScan(m_scanCallback);
-            }
-        }, SCAN_PERIOD);
+        m_semaphore.release();
 
         // 基本は、デバイスとの接続が確立した時点で呼び出します。
         notifyConnectDevice();
@@ -176,25 +184,20 @@ public class YakoStickIfDevice<syncronized> extends DeviceConnector {
     public boolean onStartDevice() {
         if (bDBG) Log.d(TAG, "onStartDevice");
         // 送信開始が別途完了通知を受ける場合には、falseを返してください。
-        if (m_connectionState == BluetoothProfile.STATE_CONNECTED) {
-            // 通知を有効にする
-            return enableNotification();
-        } else {
-            if (bDBG) Log.i(TAG, "------------------------★ startScan");
-            m_scanner.startScan( m_scanFilters, m_scanSettings, m_scanCallback );
-            m_startDeviceRequest = true;
+        if ( m_connectionState == BLE_STATUS_CONNECTED ) {
+            if (bDBG) Log.i(TAG, "-----------------★★★★★ already connected");
+        } else if ( m_connectionState == BLE_STATUS_DISCONNECTED ) {
+            startScan();
+            return false;
         }
-        return false;
+        return true;
     }
 
     @Override
     public boolean onStopDevice() {
         if (bDBG) Log.d(TAG, "onStopDevice");
         // デバイスからのデータ送信停止処理を記述してください。
-        m_bluetoothGatt.disconnect();
-        m_bluetoothGatt.close();
-        m_bluetoothGatt = null;
-        if (bDBG) Log.i(TAG, "------------------------★ gatt disconnected and closed: ");
+        disconnect();
         // 送信停止が別途完了通知を受ける場合には、falseを返してください。
         return true;
     }
@@ -209,6 +212,13 @@ public class YakoStickIfDevice<syncronized> extends DeviceConnector {
         byte drive = m_drive;
         String tempStr;
         int temp;
+
+        if ( m_connDev == null ) {
+            return true;
+        }
+        if ( m_connDev.equals(m_dev) == false ) {
+            return true;
+        }
 
         if (map.containsKey(DRIVE_KEY)) {
             /* int  ０:常時点灯 1:高速点滅 2:ゆっくり点滅 */
@@ -311,10 +321,6 @@ public class YakoStickIfDevice<syncronized> extends DeviceConnector {
                 default:
                     break;
             }
-        } else if (map.containsKey(COLORANDBRIGHTNESS_KEY)) {
-            int coloaandbrightness = (int) map.get(COLORANDBRIGHTNESS_KEY);
-            if (bDBG) Log.i(TAG, "onJob COLORANDBRIGHTNESS=" + coloaandbrightness + " nop");
-
         } else {
             if (bDBG) Log.d(TAG, "onJob no execute.");
         }
@@ -326,37 +332,39 @@ public class YakoStickIfDevice<syncronized> extends DeviceConnector {
             m_green = green;
             m_blue = blue;
             m_brightness = brightness;
+
             // LED制御
-            executeLedControl( drive, red, green, blue, brightness );
+            m_semaphore.acquireUninterruptibly();
+            BluetoothGattService service = null;
+            if ( m_bluetoothGatt != null ) {
+                service = m_bluetoothGatt.getService(UUID_PRIMARY_SERVICE);
+            }
+            if ( service != null ) {
+                BluetoothGattCharacteristic write_characteristic = service.getCharacteristic(UUID_CHARACTERISTIC_WRITE);
+                if (write_characteristic != null) {
+
+                    byte[] ledParam = new byte[5];
+                    ledParam[0] = (byte) '$';
+                    ledParam[1] = drive;
+                    ledParam[2] = (byte) (red * brightness);
+                    ledParam[3] = (byte) (green * brightness);
+                    ledParam[4] = (byte) (blue * brightness);
+
+                    Log.i(TAG, " LedControl : drive" + ledParam[1] + " red:" + ledParam[2] + " green:" + ledParam[3] + " blue:" + ledParam[4]);
+
+                    // デバイスに通知.
+                    write_characteristic.setValue(ledParam);
+                    write_characteristic.setWriteType(BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE);
+                    m_bluetoothGatt.writeCharacteristic(write_characteristic);
+                }
+            } else {
+                Log.d(TAG, " service is null.");
+            }
+            m_semaphore.release();
         }
 
 
         return true;
-    }
-
-    synchronized public void executeLedControl( byte drive, byte red, byte green, byte blue, byte brightness ) {
-        BluetoothGattService service = m_bluetoothGatt.getService(UUID_PRIMARY_SERVICE);
-        if (service != null) {
-            BluetoothGattCharacteristic write_characteristic = service.getCharacteristic(UUID_CHARACTERISTIC_WRITE);
-            if (write_characteristic != null) {
-
-                byte[] ledParam = new byte[5];
-                ledParam[0] = (byte)'$';
-                ledParam[1] = drive;
-                ledParam[2] = (byte) (red * brightness);
-                ledParam[3] = (byte) (green * brightness);
-                ledParam[4] = (byte) (blue * brightness);
-
-                Log.i(TAG, " executeLedControl : drive" + ledParam[1] + " red:" +  ledParam[2] + " green:" + ledParam[3] + " blue:" +ledParam[4]);
-
-                // デバイスに通知.
-                write_characteristic.setValue(ledParam);
-                write_characteristic.setWriteType(BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE);
-                m_bluetoothGatt.writeCharacteristic(write_characteristic);
-                return;
-            }
-        }
-        Log.d(TAG, " executeLedControl : no execute.");
     }
 
     @Override
@@ -417,15 +425,7 @@ public class YakoStickIfDevice<syncronized> extends DeviceConnector {
         if (bDBG) Log.d(TAG, "reconnectPath");
         // デバイスとの接続経路(WiFi, BLE, and so on・・・)を有効にする処理を記述してください。
         if (m_connectionState == BluetoothProfile.STATE_DISCONNECTED) {
-            if (bDBG) Log.i(TAG, "------------------------★ startScan");
-            m_scanner.startScan(m_scanFilters, m_scanSettings, m_scanCallback);
-            m_startDeviceRequest = true;
-            new Handler().postDelayed(new Runnable() {
-                @Override
-                public void run() {
-                    m_scanner.stopScan(m_scanCallback);
-                }
-            }, SCAN_PERIOD);
+            startScan();
         }
         return true;
     }
@@ -444,6 +444,9 @@ public class YakoStickIfDevice<syncronized> extends DeviceConnector {
     public final boolean reconnectDevice() {
         if (bDBG) Log.d(TAG, "reconnectDevice");
         // デバイスとの再接続処理を記述してください。
+        if (m_connectionState == BluetoothProfile.STATE_DISCONNECTED) {
+            startScan();
+        }
         return true;
     }
 
@@ -464,25 +467,56 @@ public class YakoStickIfDevice<syncronized> extends DeviceConnector {
         return true;
     }
 
+    public final void startScan() {
+        if (bDBG) Log.i(TAG, "------------------------★ startScan");
+        m_scanner.startScan( m_scanFilters, m_scanSettings, m_scanCallback );
+        m_connectionState = BLE_STATUS_SCANNING;
+        new Handler().postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                m_scanner.stopScan(m_scanCallback);
+                m_connectionState = BLE_STATUS_DISCONNECTED;
+            }
+        }, SCAN_PERIOD);
+    }
+
+    public final void disconnect() {
+        m_semaphore.acquireUninterruptibly();
+        if ( m_bluetoothGatt != null ) {
+            m_bluetoothGatt.disconnect();
+            m_bluetoothGatt.close();
+        }
+        m_bluetoothGatt = null;
+        if (bDBG) Log.i(TAG, "------------------------★ gatt disconnected and closed: ");
+        m_connectionState = BLE_STATUS_DISCONNECTED;
+        m_semaphore.release();
+    }
+
+
     class BleScancallback extends ScanCallback {
 
         @Override
         public void onScanResult(int callbackType, ScanResult result) {
             if (bDBG) Log.d(TAG,"onScanResult");
-            m_device = result.getDevice();
-            if( m_device == null ) {
-                Log.d(TAG,"device is null");
-                return;
+            m_semaphore.acquireUninterruptibly();
+            if ( m_connectionState == BLE_STATUS_SCANNING ) {
+                m_scanner.stopScan(m_scanCallback);
+                m_device = result.getDevice();
+                if (m_device == null) {
+                    Log.d(TAG, "device is null");
+                    m_connectionState = BLE_STATUS_DISCONNECTED;
+                    m_semaphore.release();
+                    return;
+                }
+                m_connectionState = BLE_STATUS_CONNECTING;
+                if (bDBG) Log.i(TAG, "--------------------★★ address:" + m_device.getAddress());
+                if (bDBG) Log.i(TAG, "--------------------     name:" + m_device.getName());
+                m_bluetoothGatt = m_device.connectGatt(mIms.getApplicationContext(), false, gattCallback);
+            } else {
+                if (bDBG) Log.i(TAG, "--------------------★ not scanning error!" );
+                m_connectionState = BLE_STATUS_DISCONNECTED;
             }
-            if (bDBG) Log.i(TAG, "--------------------★★ address:" + m_device.getAddress());
-            if (bDBG) Log.i(TAG, "--------------------★★ name:" + m_device.getName());
-            if ( m_bluetoothGatt != null ) {
-                m_bluetoothGatt.disconnect();
-                m_bluetoothGatt.close();
-                m_bluetoothGatt = null;
-            }
-            m_bluetoothGatt = m_device.connectGatt( mIms.getApplicationContext(), false, gattCallback );
-            m_scanner.stopScan(m_scanCallback);
+            m_semaphore.release();
         }
 
         @Override
@@ -493,10 +527,15 @@ public class YakoStickIfDevice<syncronized> extends DeviceConnector {
         @Override
         public void onScanFailed(int errorCode) {
             if (bDBG) Log.i(TAG,"----------------------★ onScanFailed:" + errorCode );
+            m_semaphore.acquireUninterruptibly();
+            if ( m_connectionState == BLE_STATUS_SCANNING ) {
+                m_connectionState = BLE_STATUS_DISCONNECTED;
+            }
+            m_semaphore.release();
         };
     }
 
-    private final BluetoothGattCallback gattCallback = new BluetoothGattCallback() {
+    private final BluetoothGattCallback gattCallback = new BluetoothGattCallback(  ) {
 
         private byte[] m_data = new byte[7];
 
@@ -505,30 +544,48 @@ public class YakoStickIfDevice<syncronized> extends DeviceConnector {
                 m_data[i] = (byte) 0xFF;
             }
         }
+
         @Override
         public void onConnectionStateChange(BluetoothGatt gatt, int status, int newState) {
 
             if (newState == BluetoothProfile.STATE_CONNECTED) {
-                if (bDBG) Log.i(TAG, "------------------★★★ Connected to GATT Server:" + status);
-                boolean ret = m_bluetoothGatt.discoverServices();
-                if (bDBG) Log.i(TAG, "Attempting to start service discovery:" + ret );
-                m_connectionState = newState;
+                if ( m_connectionState == BLE_STATUS_CONNECTING ) {
+                    if (bDBG) Log.i(TAG, "------------------★★★ Connected to GATT Server:" + status);
+                    boolean ret = m_bluetoothGatt.discoverServices();
+                    if (bDBG) Log.i(TAG, "Attempting to start service discovery:" + ret);
+                    if (ret == true) {
+                        m_connectionState = BLE_STATUS_DISCOVERING;
+                    } else {
+                        disconnect();
+                    }
+                }
             } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
                 if (bDBG) Log.i(TAG, "----------------------★ Disconnected from GATT server.");
-                m_dev.notifyStopDevice();
-                m_connectionState = newState;
+                disconnect();
             }
         }
 
         @Override
         // New services discovered
         public void onServicesDiscovered(BluetoothGatt gatt, int status) {
-            if (status == BluetoothGatt.GATT_SUCCESS) {
+            if (status == BluetoothGatt.GATT_SUCCESS && m_connectionState == BLE_STATUS_DISCOVERING ) {
                 if (bDBG) Log.i(TAG, "----------------★★★★ onServicesDiscovered gatt success");
-                if ( m_startDeviceRequest == true ) {
-                    initData();
-                    enableNotification();
+                initData();
+                BluetoothGattService service = m_bluetoothGatt.getService(UUID_PRIMARY_SERVICE);
+                if ( service != null ) {
+                    if (bDBG) Log.i(TAG, "-----------------★★★★★ enable notification");
+                    m_connectionState = BLE_STATUS_CONNECTED;
+                    m_connDev = m_dev;
+                    BluetoothGattCharacteristic characteristic = service.getCharacteristic(UUID_CHARACTERISTIC_READ);
+                    m_bluetoothGatt.setCharacteristicNotification(characteristic, true);
+                    BluetoothGattDescriptor descriptor = characteristic.getDescriptor(CLIENT_CHARACTERISTIC_CONFIG);
+                    descriptor.setValue(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE);
+                    m_bluetoothGatt.writeDescriptor(descriptor);
+                    m_dev.notifyConnectDevice();
                     m_dev.notifyCompleteStartDevice(true);
+                } else {
+                    if (bDBG) Log.i(TAG, "------------------------★ service　is null: ");
+                    disconnect();
                 }
             } else {
                 if (bDBG) Log.i(TAG, "onServicesDiscovered received: " + status);
@@ -552,6 +609,15 @@ public class YakoStickIfDevice<syncronized> extends DeviceConnector {
         // Characteristic notification
         public void onCharacteristicChanged(BluetoothGatt gatt,
                                             BluetoothGattCharacteristic characteristic) {
+            // 正常に切断するまでgattCallbackインスタンスが重複し、繰り返し送信してしまうことがあるので、
+            // せめて最後にdiscoverdになったインスタンスだけが送信するようにする。
+            if ( m_connDev == null ) {
+                return;
+            }
+            if ( m_connDev.equals(m_dev) == false ) {
+                return;
+            }
+
             byte[] data = characteristic.getValue();
             byte checksum = 0;
             for ( int i = 0 ; i < 6 ; i++ ) {
@@ -568,7 +634,7 @@ public class YakoStickIfDevice<syncronized> extends DeviceConnector {
                     // 送信データクリア
                     clearData();
                     // データの登録.
-                    addData(new EPAdata("SensorOnOff", "int", String.valueOf(1)));
+                    addData(new EPAdata("SensorOnOff", "int", String.valueOf(0)));
                     //ifLink Coreへデータを送信する.
                     notifyRecvData();
                     initData();
@@ -582,7 +648,7 @@ public class YakoStickIfDevice<syncronized> extends DeviceConnector {
                     // 送信データクリア
                     clearData();
                     // データの登録.
-                    addData(new EPAdata("SensorOnOff", "int", String.valueOf(0)));
+                    addData(new EPAdata("SensorOnOff", "int", String.valueOf(1)));
                     //ifLink Coreへデータを送信する.
                     notifyRecvData();
                     initData();
@@ -614,27 +680,5 @@ public class YakoStickIfDevice<syncronized> extends DeviceConnector {
             }
         }
     };
-
-    /**
-     * センサーの値は通知によって行う。ここでは通知を有効にするためにCharacteristicNotificationを書き込む。
-     * @return
-     */
-    public boolean enableNotification() {
-        BluetoothGattService service = m_bluetoothGatt.getService(UUID_PRIMARY_SERVICE);
-        if (service != null) {
-            if (bDBG) Log.i(TAG, "-----------------★★★★★ enable notification");
-            BluetoothGattCharacteristic characteristic = service.getCharacteristic(UUID_CHARACTERISTIC_READ);
-            m_bluetoothGatt.setCharacteristicNotification(characteristic, true);
-            BluetoothGattDescriptor descriptor = characteristic.getDescriptor(CLIENT_CHARACTERISTIC_CONFIG);
-            descriptor.setValue(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE);
-            m_bluetoothGatt.writeDescriptor(descriptor);
-            return true;
-        } else {
-            if (bDBG) Log.i(TAG, "------------------------★ service　is null: ");
-            m_dev.notifyStopDevice();
-            m_connectionState = BluetoothProfile.STATE_DISCONNECTED;
-        }
-        return false;
-    }
 }
 

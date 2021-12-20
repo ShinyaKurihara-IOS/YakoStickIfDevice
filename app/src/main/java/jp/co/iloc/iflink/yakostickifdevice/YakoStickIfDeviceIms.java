@@ -83,7 +83,7 @@ public class YakoStickIfDeviceIms extends IfLinkConnector {
         }
 
         YakoStickIfDevice yakoStick = new YakoStickIfDevice( this, adapter );
-        mDeviceList.add(yakoStick);
+        //mDeviceList.add(yakoStick);
     }
 
     @Override
