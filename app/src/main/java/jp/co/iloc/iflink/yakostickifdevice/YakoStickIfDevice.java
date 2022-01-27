@@ -167,7 +167,7 @@ public class YakoStickIfDevice<syncronized> extends DeviceConnector {
             //スキャンの開始
             m_scanner = adapter.getBluetoothLeScanner();
             m_scanCallback = new BleScancallback();
-            ScanFilter ｓcanFilter = new ScanFilter.Builder().setDeviceName("YakoStickProto1").build();
+            ScanFilter scanFilter = new ScanFilter.Builder().setDeviceName("YakoStickProto1").build();
             m_scanFilters = new ArrayList<>();
             m_scanFilters.add(ｓcanFilter);
             m_scanSettings = new ScanSettings.Builder().build();
