@@ -10,9 +10,9 @@
         <item>マイクロサービス IMSモジュールログ</item>
     </string-array>
 
-    <string name="pref_yakostickifdevice_settings_parameter_name">"YakoStickIfDevice parameter"</string>
-    <string name="pref_yakostickifdevice_settings_parameter_key">"yakostickifdevice_param_key"</string>
-    <string name="pref_yakostickifdevice_settings_parameter_summary">"パラメータ説明"</string>
+    <string name="pref_yakostickifdevice_settings_parameter_name">"ヤコースティック番号"</string>
+    <string name="pref_yakostickifdevice_settings_parameter_key">"yakostick_no"</string>
+    <string name="pref_yakostickifdevice_settings_parameter_summary">"ヤコースティックの番号"</string>
 
     <string name="pref_yakostickifdevice_settings_parameter_default">"1"</string>
 

@@ -18,11 +18,11 @@
         <item>CUSTOM-IMS</item>
     </string-array>
 
-    <string name="pref_yakostickifdevice_settings_parameter_name">"YakoStickIfDevice parameter"
+    <string name="pref_yakostickifdevice_settings_parameter_name">"YakoStick No."
     </string>
-    <string name="pref_yakostickifdevice_settings_parameter_key">"yakostickifdevice_param_key"
+    <string name="pref_yakostickifdevice_settings_parameter_key">"yakostick_no"
     </string>
-    <string name="pref_yakostickifdevice_settings_parameter_summary">"parameter description"
+    <string name="pref_yakostickifdevice_settings_parameter_summary">"Number of YakoStick"
     </string>
 
     <string name="pref_yakostickifdevice_settings_parameter_default">"1"</string>

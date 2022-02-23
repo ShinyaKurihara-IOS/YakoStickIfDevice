@@ -23,6 +23,7 @@ import android.util.Log;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.HashMap;
 
@@ -71,7 +72,7 @@ public class YakoStickIfDevice<syncronized> extends DeviceConnector {
     /**
      * 設定パラメータ.
      */
-    private int settingsParameter;
+    private String m_no;
     //If Sample end
 
     /**
@@ -91,6 +92,7 @@ public class YakoStickIfDevice<syncronized> extends DeviceConnector {
     private static BluetoothDevice m_device;
     private static BluetoothGatt m_bluetoothGatt;
     private static boolean m_startDeviceRequest = false;
+    private BluetoothAdapter m_adapter;
 
     /**
      * Characteristic設定用UUID
@@ -119,10 +121,10 @@ public class YakoStickIfDevice<syncronized> extends DeviceConnector {
     private final byte BRIGHTNESS_MID   = (byte) 30;
     private final byte BRIGHTNESS_HIGH  = (byte) 50;
     private byte m_drive = (byte) 'l';
-    private byte m_red   = (byte) 5;
-    private byte m_green = (byte) 5;
-    private byte m_blue  = (byte) 5;
-    private byte m_brightness = BRIGHTNESS_OFF;
+    private byte m_red   = (byte) 3;
+    private byte m_green = (byte) 3;
+    private byte m_blue  = (byte) 3;
+    private byte m_brightness = BRIGHTNESS_LOW;
 
     /**
      * if側の送信許可インスタンス
@@ -153,7 +155,7 @@ public class YakoStickIfDevice<syncronized> extends DeviceConnector {
                 + IfLinkConnector.COOKIE_DELIMITER
                 + IfLinkConnector.EPA_COOKIE_KEY_ADDRESS + "=" + IfLinkConnector.EPA_COOKIE_VALUE_ANY;
 
-        mAssetName = "YAKOSTICKIFDEVICE_EPA";
+        mAssetName = "ヤコースティック";
 
         m_dev = this;
 
@@ -162,18 +164,7 @@ public class YakoStickIfDevice<syncronized> extends DeviceConnector {
         addDevice();
 
         m_semaphore.acquireUninterruptibly();
-
-        if (m_connectionState == BLE_STATUS_DISCONNECTED) {
-            //スキャンの開始
-            m_scanner = adapter.getBluetoothLeScanner();
-            m_scanCallback = new BleScancallback();
-            ScanFilter ｓcanFilter = new ScanFilter.Builder().setDeviceName("YakoStickProto1").build();
-            m_scanFilters = new ArrayList<>();
-            m_scanFilters.add(ｓcanFilter);
-            m_scanSettings = new ScanSettings.Builder().build();
-            startScan();
-        }
-
+        m_adapter = adapter;
         m_semaphore.release();
 
         // 基本は、デバイスとの接続が確立した時点で呼び出します。
@@ -187,6 +178,13 @@ public class YakoStickIfDevice<syncronized> extends DeviceConnector {
         if ( m_connectionState == BLE_STATUS_CONNECTED ) {
             if (bDBG) Log.i(TAG, "-----------------★★★★★ already connected");
         } else if ( m_connectionState == BLE_STATUS_DISCONNECTED ) {
+            //スキャンの開始
+            m_scanner = m_adapter.getBluetoothLeScanner();
+            m_scanCallback = new BleScancallback();
+            ScanFilter ｓcanFilter = new ScanFilter.Builder().setDeviceName("YakoStickProto" + m_no).build();
+                    m_scanFilters = new ArrayList<>();
+            m_scanFilters.add(ｓcanFilter);
+            m_scanSettings = new ScanSettings.Builder().build();
             startScan();
             return false;
         }
@@ -388,13 +386,9 @@ public class YakoStickIfDevice<syncronized> extends DeviceConnector {
     protected void onUpdateConfig(@NonNull IfLinkSettings settings) throws IfLinkAlertException {
         if (bDBG) Log.d(TAG, "onUpdateConfig");
         String key = mIms.getString(R.string.pref_yakostickifdevice_settings_parameter_key);
-        int param = settings.getIntValue(key, 1);
-        if (bDBG) Log.d(TAG, "parameter[" + key + "] = " + param);
+        m_no = settings.getStringValue(key, "1");
+        if (bDBG) Log.d(TAG, "parameter[" + key + "] = " + m_no);
         // 設定パラメータを更新する処理を記述してください。
-        // insert routine for reflecting received parameter
-        //If Sample start
-        this.settingsParameter = (int) param;
-        //If Sample end
     }
 
     @Override
@@ -469,15 +463,8 @@ public class YakoStickIfDevice<syncronized> extends DeviceConnector {
 
     public final void startScan() {
         if (bDBG) Log.i(TAG, "------------------------★ startScan");
-        m_scanner.startScan( m_scanFilters, m_scanSettings, m_scanCallback );
         m_connectionState = BLE_STATUS_SCANNING;
-        new Handler().postDelayed(new Runnable() {
-            @Override
-            public void run() {
-                m_scanner.stopScan(m_scanCallback);
-                m_connectionState = BLE_STATUS_DISCONNECTED;
-            }
-        }, SCAN_PERIOD);
+        m_scanner.startScan( m_scanFilters, m_scanSettings, m_scanCallback );
     }
 
     public final void disconnect() {
@@ -620,62 +607,73 @@ public class YakoStickIfDevice<syncronized> extends DeviceConnector {
 
             byte[] data = characteristic.getValue();
             byte checksum = 0;
-            for ( int i = 0 ; i < 6 ; i++ ) {
-                m_data[i] = m_data[i+1];
-                checksum += m_data[i];
+            // 時々２バイト以上の場合がある。
+            String dataStr = "";
+            for (byte b : data) {
+                dataStr += String.format("%02X ", b);
             }
-            m_data[6] = data[0];
-            if ( m_data[6] == checksum ) {
-                // xのみ0xFFFFならSensorOnOffにONを設定
-                if (m_data[0] == -1 && m_data[1] == -1 &&
-                        m_data[2] == 0 && m_data[3] == 0 &&
-                        m_data[4] == 0 && m_data[5] == 0) {
-                    if (bDBG) Log.i(TAG, "send data : SensorOnOff=ON");
-                    // 送信データクリア
-                    clearData();
-                    // データの登録.
-                    addData(new EPAdata("SensorOnOff", "int", String.valueOf(0)));
-                    //ifLink Coreへデータを送信する.
-                    notifyRecvData();
-                    initData();
+            //if (bDBG) Log.i(TAG, "received data : " + dataStr);
+
+            for (byte b : data) {
+                checksum = 0;
+                for (int i = 0; i < 6; i++) {
+                    m_data[i] = m_data[i + 1];
+                    checksum += m_data[i];
                 }
+                m_data[6] = b;
+                if (m_data[6] == -2) {
+                    // xのみ0xFFFFならSensorOnOffにONを設定
+                    if (m_data[0] == -1 && m_data[1] == -1 &&
+                            m_data[2] == 0 && m_data[3] == 0 &&
+                            m_data[4] == 0 && m_data[5] == 0) {
+                        if (bDBG) Log.i(TAG, "send data : SensorOnOff=ON");
+                        // 送信データクリア
+                        clearData();
+                        // データの登録.
+                        addData(new EPAdata("SensorOnOff", "int", String.valueOf(0)));
+                        //ifLink Coreへデータを送信する.
+                        notifyRecvData();
+                        initData();
+                    }
 
-                // xとyが0xFFFFならSensorOnOffにOFFを設定
-                if (m_data[0] == -1 && m_data[1] == -1 &&
-                        m_data[2] == -1 && m_data[3] == -1 &&
-                        m_data[4] == 0 && m_data[5] == 0) {
-                    if (bDBG) Log.i(TAG, "send data : SensorOnOff=OFF");
-                    // 送信データクリア
-                    clearData();
-                    // データの登録.
-                    addData(new EPAdata("SensorOnOff", "int", String.valueOf(1)));
-                    //ifLink Coreへデータを送信する.
-                    notifyRecvData();
-                    initData();
-                }
+                    // xとyが0xFFFFならSensorOnOffにOFFを設定
+                    if (m_data[0] == -1 && m_data[1] == -1 &&
+                            m_data[2] == -1 && m_data[3] == -1 &&
+                            m_data[4] == 0 && m_data[5] == 0) {
+                        if (bDBG) Log.i(TAG, "send data : SensorOnOff=OFF");
+                        // 送信データクリア
+                        clearData();
+                        // データの登録.
+                        addData(new EPAdata("SensorOnOff", "int", String.valueOf(1)));
+                        //ifLink Coreへデータを送信する.
+                        notifyRecvData();
+                        initData();
+                    }
 
-                if ( !(m_data[0] == -1 && m_data[1] == -1) &&
-                        !(m_data[2] == -1 && m_data[3] == -1) &&
-                        !(m_data[4] == -1 && m_data[5] == -1)) {
-                    byte[] xBytes = {m_data[1], m_data[0]};
-                    byte[] yBytes = {m_data[3], m_data[2]};
-                    byte[] zBytes = {m_data[5], m_data[4]};
-                    int xVal = ByteBuffer.wrap(xBytes).getShort();
-                    int yVal = ByteBuffer.wrap(yBytes).getShort();
-                    int zVal = ByteBuffer.wrap(zBytes).getShort();
+                    if (!(m_data[0] == -1 && m_data[1] == -1) &&
+                            !(m_data[2] == -1 && m_data[3] == -1) &&
+                            !(m_data[4] == -1 && m_data[5] == -1)) {
+                        byte[] xBytes = {m_data[1], m_data[0]};
+                        byte[] yBytes = {m_data[3], m_data[2]};
+                        byte[] zBytes = {m_data[5], m_data[4]};
+                        int xVal = ByteBuffer.wrap(xBytes).getShort();
+                        int yVal = ByteBuffer.wrap(yBytes).getShort();
+                        int zVal = ByteBuffer.wrap(zBytes).getShort();
 
-                    if (bDBG)
-                        Log.i(TAG, "send data :" + String.format("AdVal X=%d Y=%d Z=%d", xVal, yVal, zVal));
+                        // if (bDBG)  Log.i(TAG, "send data :" + String.format("AdVal X=%d Y=%d Z=%d", xVal, yVal, zVal));
 
-                    // 送信データクリア
-                    clearData();
-                    // データの登録.
-                    addData(new EPAdata("AdValX", "int", String.valueOf(xVal)));
-                    addData(new EPAdata("AdValY", "int", String.valueOf(yVal)));
-                    addData(new EPAdata("AdValZ", "int", String.valueOf(zVal)));
-                    //ifLink Coreへデータを送信する.
-                    notifyRecvData();
-                    initData();
+                        // 送信データクリア
+                        clearData();
+                        // データの登録.
+                        addData(new EPAdata("AdValX", "int", String.valueOf(xVal)));
+                        addData(new EPAdata("AdValY", "int", String.valueOf(yVal)));
+                        addData(new EPAdata("AdValZ", "int", String.valueOf(zVal)));
+                        //ifLink Coreへデータを送信する.
+                        notifyRecvData();
+                        initData();
+
+                    }
+                    Arrays.fill(m_data, (byte)0);
                 }
             }
         }
