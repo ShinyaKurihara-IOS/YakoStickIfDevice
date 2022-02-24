@@ -111,7 +111,7 @@ public class YakoStickIfDevice<syncronized> extends DeviceConnector {
     private static final int    BLE_STATUS_CONNECTING   = 3;
     private static final int    BLE_STATUS_DISCOVERING  = 4;
     private static final int    BLE_STATUS_CONNECTED    = 5;
-    private static int m_connectionState = BLE_STATUS_UNINNTIALIZE;
+    private static int m_connectionState = BLE_STATUS_DISCONNECTED;
 
     /**
      * Then処理用パラメータ
@@ -122,8 +122,8 @@ public class YakoStickIfDevice<syncronized> extends DeviceConnector {
     private final byte BRIGHTNESS_HIGH  = (byte) 50;
     private byte m_drive = (byte) 'l';
     private byte m_red   = (byte) 3;
-    private byte m_green = (byte) 3;
-    private byte m_blue  = (byte) 3;
+    private byte m_green = (byte) 2;
+    private byte m_blue  = (byte) 1;
     private byte m_brightness = BRIGHTNESS_LOW;
 
     /**
@@ -132,6 +132,8 @@ public class YakoStickIfDevice<syncronized> extends DeviceConnector {
      * 複数インスタンスある状態に陥る。if側の送信が重複するので、送信するインスタンスを絞る。
      */
     static Object m_connDev = null;
+
+    static int m_len = 0;
 
     /**
      * コンストラクタ.
@@ -181,9 +183,17 @@ public class YakoStickIfDevice<syncronized> extends DeviceConnector {
             //スキャンの開始
             m_scanner = m_adapter.getBluetoothLeScanner();
             m_scanCallback = new BleScancallback();
-            ScanFilter ｓcanFilter = new ScanFilter.Builder().setDeviceName("YakoStickProto" + m_no).build();
+            ScanFilter scanFilter1 = new ScanFilter.Builder().setDeviceName("YakoStickProto1").build();
+            ScanFilter scanFilter2 = new ScanFilter.Builder().setDeviceName("YakoStickProto2").build();
+            ScanFilter scanFilter3 = new ScanFilter.Builder().setDeviceName("YakoStickProto3").build();
+            ScanFilter scanFilter4 = new ScanFilter.Builder().setDeviceName("YakoStickProto4").build();
+            ScanFilter scanFilter5 = new ScanFilter.Builder().setDeviceName("YakoStickProto5").build();
                     m_scanFilters = new ArrayList<>();
-            m_scanFilters.add(ｓcanFilter);
+            m_scanFilters.add(scanFilter1);
+            m_scanFilters.add(scanFilter2);
+            m_scanFilters.add(scanFilter3);
+            m_scanFilters.add(scanFilter4);
+            m_scanFilters.add(scanFilter5);
             m_scanSettings = new ScanSettings.Builder().build();
             startScan();
             return false;
@@ -501,7 +511,8 @@ public class YakoStickIfDevice<syncronized> extends DeviceConnector {
                 m_bluetoothGatt = m_device.connectGatt(mIms.getApplicationContext(), false, gattCallback);
             } else {
                 if (bDBG) Log.i(TAG, "--------------------★ not scanning error!" );
-                m_connectionState = BLE_STATUS_DISCONNECTED;
+                m_scanner.stopScan(m_scanCallback);
+                disconnect();
             }
             m_semaphore.release();
         }
@@ -570,6 +581,24 @@ public class YakoStickIfDevice<syncronized> extends DeviceConnector {
                     m_bluetoothGatt.writeDescriptor(descriptor);
                     m_dev.notifyConnectDevice();
                     m_dev.notifyCompleteStartDevice(true);
+                    m_len = 0;
+                    BluetoothGattCharacteristic write_characteristic = service.getCharacteristic(UUID_CHARACTERISTIC_WRITE);
+                    if (write_characteristic != null) {
+
+                        byte[] ledParam = new byte[5];
+                        ledParam[0] = (byte) '$';
+                        ledParam[1] = m_drive;
+                        ledParam[2] = (byte) (m_red * m_brightness);
+                        ledParam[3] = (byte) (m_green * m_brightness);
+                        ledParam[4] = (byte) (m_blue * m_brightness);
+
+                        Log.i(TAG, " LedControl : drive" + ledParam[1] + " red:" + ledParam[2] + " green:" + ledParam[3] + " blue:" + ledParam[4]);
+
+                        // デバイスに通知.
+                        write_characteristic.setValue(ledParam);
+                        write_characteristic.setWriteType(BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE);
+                        m_bluetoothGatt.writeCharacteristic(write_characteristic);
+                    }
                 } else {
                     if (bDBG) Log.i(TAG, "------------------------★ service　is null: ");
                     disconnect();
@@ -607,6 +636,7 @@ public class YakoStickIfDevice<syncronized> extends DeviceConnector {
 
             byte[] data = characteristic.getValue();
             byte checksum = 0;
+
             // 時々２バイト以上の場合がある。
             String dataStr = "";
             for (byte b : data) {
@@ -621,7 +651,8 @@ public class YakoStickIfDevice<syncronized> extends DeviceConnector {
                     checksum += m_data[i];
                 }
                 m_data[6] = b;
-                if (m_data[6] == -2) {
+                m_len++;
+                if ( m_len >= 6 && m_data[6] == checksum) {
                     // xのみ0xFFFFならSensorOnOffにONを設定
                     if (m_data[0] == -1 && m_data[1] == -1 &&
                             m_data[2] == 0 && m_data[3] == 0 &&
@@ -660,7 +691,7 @@ public class YakoStickIfDevice<syncronized> extends DeviceConnector {
                         int yVal = ByteBuffer.wrap(yBytes).getShort();
                         int zVal = ByteBuffer.wrap(zBytes).getShort();
 
-                        // if (bDBG)  Log.i(TAG, "send data :" + String.format("AdVal X=%d Y=%d Z=%d", xVal, yVal, zVal));
+                        //if (bDBG)  Log.i(TAG, "send data :" + String.format("AdVal X=%d Y=%d Z=%d", xVal, yVal, zVal));
 
                         // 送信データクリア
                         clearData();
@@ -674,6 +705,7 @@ public class YakoStickIfDevice<syncronized> extends DeviceConnector {
 
                     }
                     Arrays.fill(m_data, (byte)0);
+                    m_len = 0;
                 }
             }
         }
